@@ -6,8 +6,8 @@
   z-index: 20;
   padding: 4px 8px;
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.82);
-  color: #fff;
+  background: rgba(43, 33, 27, 0.88);
+  color: #fff8ee;
   font-size: var(--fs-footnote);
   text-align: center;
 }
@@ -36,6 +36,22 @@
     &:nth-child(3) {
       animation-delay: 0.4s;
     }
+  }
+}
+
+.api-error {
+  padding: var(--screen-margin);
+  color: var(--c-negative);
+  font-size: var(--fs-body);
+
+  &__retry {
+    margin-top: 6px;
+    padding: 4px 10px;
+    border: 1px solid var(--c-negative);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--c-negative);
+    font-size: var(--fs-footnote);
   }
 }
 

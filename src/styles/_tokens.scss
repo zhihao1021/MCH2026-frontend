@@ -26,18 +26,22 @@
   --fw-headline: 900;
   --fw-body: 400;
 
-  // Color
-  --c-bg: #ffffff;
-  --c-fg: #1a1a1a;
-  --c-muted: #6b7280;
-  --c-line: #e3e3e3;
-  --c-accent: #005fcc;
-  --c-accent-fg: #ffffff;
-  --c-header-bg: #00347a;
-  --c-header-fg: #ffffff;
-  --c-softkey-bg: #f2f2f2;
-  --c-softkey-fg: #1a1a1a;
-  --c-overlay: rgba(0, 0, 0, 0.45);
+  // Color — 暖色系「產地/市集」主題（赤陶強調色 + 牛皮紙底），
+  // 刻意不用綠色當強調色：漲跌已經用綠/紅，避免混淆。
+  --c-bg: #fbf5e9;
+  --c-fg: #2b211b;
+  --c-muted: #8a7a66;
+  --c-line: #e6d9c3;
+  --c-accent: #b54b24;
+  --c-accent-fg: #fff8ee;
+  --c-accent-soft: #f0ded1;
+  --c-header-bg: #5b3a29;
+  --c-header-fg: #fbf5e9;
+  --c-softkey-bg: #f1e6d2;
+  --c-softkey-fg: #2b211b;
+  --c-overlay: rgba(43, 33, 27, 0.55);
+  --c-positive: #1b8a3d;
+  --c-negative: #c62828;
 
   // Misc
   --row-h: 36px;
@@ -60,11 +64,14 @@
 // 部分機型支援系統深色模式
 @media (prefers-color-scheme: dark) {
   :root {
-    --c-bg: #101114;
-    --c-fg: #f5f5f5;
-    --c-muted: #9aa0a6;
-    --c-line: #2a2d33;
-    --c-softkey-bg: #1c1f25;
-    --c-softkey-fg: #f5f5f5;
+    --c-bg: #1c1610;
+    --c-fg: #f5ecdd;
+    --c-muted: #a99c89;
+    --c-line: #3a2f24;
+    --c-accent-soft: #3a2a1f;
+    --c-softkey-bg: #241c14;
+    --c-softkey-fg: #f5ecdd;
+    --c-positive: #3ecb69;
+    --c-negative: #ff6b57;
   }
 }

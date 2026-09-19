@@ -11,7 +11,15 @@ export function SoftKeyBar() {
   return (
     <div className="app__softkeys" role="toolbar" aria-label="soft keys">
       <span className="app__softkey app__softkey--left">{left?.label ?? ''}</span>
-      <span className="app__softkey app__softkey--center">{center?.label ?? ''}</span>
+      <span
+        className={
+          center?.label !== undefined && center.label.length > 0
+            ? 'app__softkey app__softkey--center app__softkey--center-filled'
+            : 'app__softkey app__softkey--center'
+        }
+      >
+        {center?.label ?? ''}
+      </span>
       <span className="app__softkey app__softkey--right">{right?.label ?? ''}</span>
     </div>
   )

@@ -1,0 +1,54 @@
+.form {
+  &__field {
+    margin-bottom: 12px;
+  }
+
+  &__label {
+    display: block;
+    margin-bottom: 4px;
+    font-size: var(--fs-footnote);
+    color: var(--c-muted);
+  }
+
+  &__input {
+    width: 100%;
+    min-height: var(--row-h);
+    padding: 4px 8px;
+    border: 1px solid var(--c-line);
+    border-radius: 4px;
+    background: var(--c-bg);
+    color: var(--c-fg);
+    font-size: var(--fs-body);
+    font-family: inherit;
+
+    // 全域的 :focus { outline: none }（見 _base.scss）是給清單那套 .is-focused
+    // 用的，表單欄位（含 <select>）不在那套系統裡，得自己補一個看得見的焦點樣式，
+    // D-pad 在欄位間移動時才看得出目前停在哪一格。
+    &:focus {
+      border-color: var(--c-accent);
+      box-shadow: 0 0 0 2px var(--c-accent);
+    }
+  }
+
+  // 由身分決定、不可改的欄位（例如報價方向），排得跟輸入框一樣高但不做成輸入框
+  &__static {
+    margin: 0;
+    min-height: var(--row-h);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: var(--fs-body);
+  }
+
+  &__error {
+    margin-top: 4px;
+    color: var(--c-negative);
+    font-size: var(--fs-footnote);
+  }
+
+  &__hint {
+    margin-top: 4px;
+    color: var(--c-muted);
+    font-size: var(--fs-footnote);
+  }
+}

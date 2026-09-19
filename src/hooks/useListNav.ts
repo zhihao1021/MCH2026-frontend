@@ -14,6 +14,8 @@ type Options = {
   /** 數字鍵 1-9 直接跳到第 n 項，預設開啟。 */
   digitJump?: boolean
   enabled?: boolean
+  /** 掛載時的初始焦點索引，預設 0（例如還原上次選擇）。 */
+  initialIndex?: number
 }
 
 type ItemProps = {
@@ -37,8 +39,9 @@ export function useListNav({
   loop = true,
   digitJump = true,
   enabled = true,
+  initialIndex = 0,
 }: Options) {
-  const [index, setIndex] = useState(0)
+  const [index, setIndex] = useState(initialIndex)
   const itemsRef = useRef<(HTMLElement | null)[]>([])
 
   // 資料變短時直接在 render 階段夾回範圍，不需要額外 setState
@@ -99,11 +102,14 @@ export function useListNav({
       tabIndex: -1,
       'aria-selected': i === clamped,
       onClick: () => {
+        // enabled=false 代表這份清單目前不該回應操作（例如彈窗蓋在上面、資料載入中），
+        // D-pad 已經靠 useKeypad 的 enabled 擋掉了，滑鼠點擊也要一起擋，兩條路徑才會一致。
+        if (!enabled) return
         setIndex(i)
         onSelect?.(i)
       },
     }),
-    [clamped, onSelect],
+    [clamped, enabled, onSelect],
   )
 
   return { index: clamped, setIndex, itemProps }

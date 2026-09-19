@@ -1,3 +1,5 @@
+@use 'mixins' as *;
+
 /// 一般內容頁
 .prose {
   h2 {
@@ -18,5 +20,85 @@
     color: var(--c-muted);
     font-size: var(--fs-footnote);
     margin-top: 6px;
+  }
+
+  h3 {
+    font-size: var(--fs-body);
+    font-weight: var(--fw-headline);
+    color: var(--c-muted);
+    margin: 12px 0 4px;
+  }
+}
+
+.user-profile {
+  &__name {
+    margin: 0;
+    font-size: var(--fs-headline);
+    font-weight: var(--fw-headline);
+  }
+}
+
+.product-detail {
+  // 圖片縮成小方塊放在公平價格那一幕，不佔整幕高度；授權標示（必要）放旁邊
+  &__hero {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+
+    img {
+      flex: 0 0 auto;
+      width: 56px;
+      height: 56px;
+      object-fit: cover;
+      background: var(--c-line);
+      border-radius: 6px;
+
+      @include qqvga {
+        width: 36px;
+        height: 36px;
+      }
+    }
+  }
+
+  &__image-credit {
+    margin: 0;
+    min-width: 0;
+    color: var(--c-muted);
+    font-size: var(--fs-footnote);
+
+    a {
+      color: inherit;
+    }
+  }
+
+  &__fair-price {
+    margin: 0 0 4px;
+    font-size: var(--fs-header);
+    font-weight: var(--fw-headline);
+    color: var(--c-accent);
+  }
+
+  &__markets {
+    li {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 4px var(--screen-margin);
+      border-bottom: 1px solid var(--c-line);
+      font-size: var(--fs-body);
+
+      // 兩種解析度（240x320 / 128x160）都要能正確省略過長的市場名稱：
+      // flex item 預設 min-width:auto 會擋住 text-overflow: ellipsis 生效
+      span:first-child {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      span:last-child {
+        flex: 0 0 auto;
+      }
+    }
   }
 }

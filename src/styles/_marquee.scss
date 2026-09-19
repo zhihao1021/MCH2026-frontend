@@ -1,0 +1,35 @@
+.marquee {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  width: 100%;
+
+  &__text {
+    display: inline-block;
+    white-space: nowrap;
+
+    &.is-scrolling {
+      // 來回捲動：兩端各停頓一下再捲，比連續無限捲動更好讀
+      animation-name: marquee-scroll;
+      animation-timing-function: linear;
+      animation-iteration-count: infinite;
+    }
+  }
+}
+
+@keyframes marquee-scroll {
+  0%,
+  12% {
+    transform: translateX(0);
+  }
+
+  44%,
+  56% {
+    transform: translateX(var(--marquee-distance));
+  }
+
+  88%,
+  100% {
+    transform: translateX(0);
+  }
+}

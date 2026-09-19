@@ -1,0 +1,62 @@
+.chart {
+  padding: 4px 0;
+
+  &__svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  &__gridline {
+    stroke: var(--c-line);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__area {
+    fill: var(--c-accent);
+    opacity: 0.12;
+    stroke: none;
+  }
+
+  &__line {
+    stroke: var(--c-accent);
+    stroke-width: 2;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__dot {
+    fill: var(--c-accent);
+  }
+
+  &__footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    font-size: var(--fs-footnote);
+    margin-top: 2px;
+
+    // 128x160 (QQVGA) 寬度很窄，日期範圍要能先讓出空間給價格
+    span:first-child {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    span:last-child {
+      flex: 0 0 auto;
+    }
+  }
+
+  &__change {
+    font-size: var(--fs-footnote);
+    font-weight: var(--fw-headline);
+
+    &--up {
+      color: var(--c-positive);
+    }
+
+    &--down {
+      color: var(--c-negative);
+    }
+  }
+}

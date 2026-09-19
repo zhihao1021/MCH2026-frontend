@@ -1,0 +1,41 @@
+.range-bar {
+  padding: 4px 0;
+
+  &__labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--fs-footnote);
+    color: var(--c-muted);
+  }
+
+  &__track {
+    position: relative;
+    height: 8px;
+    margin-top: 4px;
+    background: var(--c-line);
+    border-radius: 4px;
+  }
+
+  &__fill {
+    position: absolute;
+    inset: 0;
+    background: var(--c-accent);
+    opacity: 0.35;
+    border-radius: 4px;
+  }
+
+  &__tick {
+    position: absolute;
+    top: -2px;
+    width: 2px;
+    height: 12px;
+    background: var(--c-fg);
+    transform: translateX(-1px);
+  }
+
+  &__caption {
+    margin: 4px 0 0;
+    font-size: var(--fs-footnote);
+    color: var(--c-muted);
+  }
+}

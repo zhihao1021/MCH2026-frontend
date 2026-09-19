@@ -21,9 +21,18 @@
     font-weight: var(--fw-header);
   }
 
+  &__header-mark {
+    flex: 0 0 auto;
+    line-height: 1;
+    // 128px 寬的 QQVGA 螢幕留給標題文字更重要，把品牌標記讓出來
+    @include qqvga {
+      display: none;
+    }
+  }
+
   &__header-title {
     flex: 1 1 auto;
-    @include truncate;
+    min-width: 0;
   }
 
   &__content {
@@ -64,7 +73,19 @@
       text-align: center;
       font-weight: 700;
       text-transform: uppercase;
-      padding: 0 4px;
+    }
+
+    // 中央鍵是最常用的動作，有標籤時用實色小色塊讓它看起來像按鈕而不是純文字
+    &--center-filled {
+      justify-self: center;
+      padding: 2px 10px;
+      border-radius: 999px;
+      background: var(--c-accent);
+      color: var(--c-accent-fg);
+
+      @include qqvga {
+        padding: 1px 6px;
+      }
     }
 
     &--right {

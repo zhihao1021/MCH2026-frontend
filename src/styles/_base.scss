@@ -1,5 +1,3 @@
-@use 'mixins' as *;
-
 *,
 *::before,
 *::after {
@@ -54,10 +52,6 @@ ol {
 // 焦點樣式統一由 .is-focused 控制，移除瀏覽器預設外框
 :focus {
   outline: none;
-}
-
-.u-truncate {
-  @include truncate;
 }
 
 .u-muted {

@@ -1,6 +1,7 @@
 import { useCallback, useState, type ReactNode } from 'react'
 import { useListNav } from '../hooks/useListNav'
 import { useSoftKeys } from '../hooks/useSoftKeys'
+import { MarqueeText } from './MarqueeText'
 
 export type OptionItem = {
   id: string
@@ -65,9 +66,7 @@ function OptionsMenu({
             const { ref, ...rest } = itemProps(i)
             return (
               <li key={item.id} role="option" ref={ref} {...rest}>
-                <span className={item.disabled === true ? 'u-muted u-truncate' : 'u-truncate'}>
-                  {item.label}
-                </span>
+                <MarqueeText text={item.label} className={item.disabled === true ? 'u-muted' : undefined} />
               </li>
             )
           })}

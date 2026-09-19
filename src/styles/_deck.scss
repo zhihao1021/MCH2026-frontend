@@ -1,0 +1,70 @@
+@use 'mixins' as *;
+
+/// 翻頁式內容頁（Deck）：整頁不捲動、下方翻頁列固定高度（沿用 .list__pager），
+/// 每一幕自己塞進剩餘高度。幕裡的東西預設不伸縮，只有 .deck__list 會撐滿、讓列平分高度。
+.deck {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  &__screen {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: var(--screen-margin);
+
+    > * {
+      flex: 0 0 auto;
+    }
+
+    h3 {
+      margin: 0 0 4px;
+      font-size: var(--fs-body);
+      font-weight: var(--fw-headline);
+      color: var(--c-muted);
+    }
+
+    p {
+      margin: 0 0 4px;
+    }
+
+    dl {
+      margin: 0;
+    }
+
+    dt {
+      color: var(--c-muted);
+      font-size: var(--fs-footnote);
+      margin-top: 6px;
+    }
+
+    dd {
+      margin: 0;
+    }
+  }
+
+  &__list {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    // 讓列的反白背景貼齊螢幕兩邊，跟其他清單頁一致；列本身的 padding 會把文字縮回來
+    margin: 0 calc(-1 * var(--screen-margin));
+
+    > ul {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    li {
+      flex: 1 1 0;
+      min-height: 0;
+      overflow: hidden;
+    }
+  }
+}

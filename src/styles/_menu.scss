@@ -11,8 +11,10 @@
   &__panel {
     background: var(--c-bg);
     border-top: 1px solid var(--c-line);
+    border-radius: 8px 8px 0 0;
     max-height: 70%;
     overflow-y: auto;
+    overflow-x: hidden;
     margin-bottom: var(--softkey-h);
   }
 

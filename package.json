@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "mock": "node scripts/mock-server.mjs",
     "typecheck": "tsc -b",
     "build": "tsc -b && vite build",
     "lint": "oxlint",

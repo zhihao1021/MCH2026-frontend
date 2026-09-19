@@ -1,0 +1,21 @@
+@use 'mixins' as *;
+
+.badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--c-line);
+  color: var(--c-muted);
+  font-size: var(--fs-footnote);
+  white-space: nowrap;
+
+  @include qqvga {
+    padding: 1px 5px;
+  }
+
+  // 使用者身分比資料新鮮度更值得注意，給它強調色而不是跟資訊性徽章一樣的中性色
+  &--role {
+    background: var(--c-accent-soft);
+    color: var(--c-accent);
+  }
+}

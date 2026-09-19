@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { useSoftKeys, type SoftKeyConfig } from '../hooks/useSoftKeys'
+import { MarqueeText } from './MarqueeText'
 import { SoftKeyBar } from './SoftKeyBar'
 
 type Props = {
@@ -22,7 +23,8 @@ export function Page({ title, softKeys = {}, flush = false, headerAside, childre
   return (
     <div className="app">
       <header className="app__header">
-        <span className="app__header-title">{title}</span>
+        <span className="app__header-mark" aria-hidden="true">🌾</span>
+        <MarqueeText text={title} className="app__header-title" />
         {headerAside}
       </header>
       <main className={flush ? 'app__content app__content--flush' : 'app__content'}>
