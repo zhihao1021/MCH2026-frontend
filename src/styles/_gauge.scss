@@ -1,0 +1,138 @@
+// 「市場供需現實度」儀表（IntentGauge）與意向看板（IntentBoard）
+.gauge {
+  margin: 6px 0 4px;
+
+  &__track {
+    position: relative;
+    height: 10px;
+    background: var(--c-line);
+    border-radius: 5px;
+    overflow: visible;
+  }
+
+  // 低於產地成本的無效區：從 0 到底線價
+  &__invalid {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    background: var(--c-negative);
+    opacity: 0.5;
+    border-radius: 5px 0 0 5px;
+  }
+
+  // 共識 ±15% 的合理區
+  &__fair {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    background: var(--c-positive);
+    opacity: 0.45;
+  }
+
+  &__mark {
+    position: absolute;
+    top: -2px;
+    width: 2px;
+    height: 14px;
+    transform: translateX(-1px);
+
+    &--official {
+      background: var(--c-muted);
+    }
+
+    &--anchor {
+      background: var(--c-accent);
+    }
+  }
+
+  // 使用者正在輸入的價格：比刻度粗、帶邊框，功能機螢幕上一眼分得出來
+  &__cursor {
+    position: absolute;
+    top: -4px;
+    width: 6px;
+    height: 18px;
+    background: var(--c-fg);
+    border: 1px solid var(--c-bg);
+    border-radius: 2px;
+    transform: translateX(-3px);
+  }
+
+  &__legend {
+    list-style: none;
+    margin: 6px 0 0;
+    padding: 0;
+    font-size: var(--fs-footnote);
+    color: var(--c-muted);
+
+    li {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+  }
+
+  &__dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    flex: none;
+
+    &--invalid {
+      background: var(--c-negative);
+      opacity: 0.6;
+    }
+
+    &--official {
+      background: var(--c-muted);
+    }
+
+    &--anchor {
+      background: var(--c-accent);
+    }
+  }
+
+  &__status {
+    margin: 4px 0 0;
+    font-size: var(--fs-footnote);
+    font-weight: 600;
+  }
+
+  &--invalid &__status {
+    color: var(--c-negative);
+  }
+
+  &--fair &__status {
+    color: var(--c-positive);
+  }
+
+  &--low &__status,
+  &--high &__status {
+    color: var(--c-muted);
+  }
+}
+
+.intent-board {
+  &__anchor {
+    margin: 4px 0 0;
+    font-size: var(--fs-headline);
+    font-weight: 700;
+  }
+
+  &__caption {
+    margin: 2px 0 0;
+    font-size: var(--fs-footnote);
+    color: var(--c-muted);
+  }
+}
+
+// Q1～Q3 帶：疊在 range-bar 的淡色填滿上，比它深一階
+.range-bar__band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--c-accent);
+  opacity: 0.7;
+  border-radius: 4px;
+}

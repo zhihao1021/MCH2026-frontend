@@ -4,6 +4,7 @@ import { ListView, type ListItem } from '../components/ListView'
 import { useOptionsMenu } from '../components/OptionsMenu'
 import { Page } from '../components/Page'
 import { useToast } from '../components/Toast'
+import { useAuth } from '../hooks/useAuth'
 import { useFavorites } from '../hooks/useFavorites'
 import { translate, useI18n } from '../i18n'
 
@@ -11,12 +12,15 @@ const PATHS: Record<string, string> = {
   wizard: '/wizard/region',
   products: '/products',
   favorites: '/favorites',
+  intents: '/intents/mine',
+  notifications: '/notifications',
 }
 
 export function HomePage() {
   const navigate = useNavigate()
   const toast = useToast()
   const favorites = useFavorites()
+  const auth = useAuth()
   const { t, locale, setLocale } = useI18n()
   const [position, setPosition] = useState(1)
 
@@ -30,6 +34,13 @@ export function HomePage() {
       // 收藏數直接顯示在列上：未登入或還沒收藏過就不顯示數字
       trailing: favorites.items.length > 0 ? `${favorites.items.length}` : undefined,
     },
+    // 期望價與開團通知都要登入才有內容，訪客的首頁維持三項就好
+    ...(auth.user !== null
+      ? [
+          { id: 'intents', title: t('home.intents.title'), subtitle: t('home.intents.subtitle') },
+          { id: 'notifications', title: t('home.notifications.title'), subtitle: t('home.notifications.subtitle') },
+        ]
+      : []),
   ]
 
   // 語言就放在首頁的選項裡：這是使用者第一眼看到的畫面，

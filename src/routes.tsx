@@ -3,9 +3,13 @@ import { AboutPage } from './pages/AboutPage'
 import { CropPickerPage } from './pages/CropPickerPage'
 import { FavoritesPage } from './pages/FavoritesPage'
 import { HomePage } from './pages/HomePage'
+import { IntentFormPage } from './pages/IntentFormPage'
 import { LoginOtpPage } from './pages/LoginOtpPage'
 import { LoginPhonePage } from './pages/LoginPhonePage'
+import { MyIntentsPage } from './pages/MyIntentsPage'
 import { MyQuotesPage } from './pages/MyQuotesPage'
+import { NotificationDetailPage } from './pages/NotificationDetailPage'
+import { NotificationsPage } from './pages/NotificationsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 import { ProductDetailPage } from './pages/ProductDetailPage'
 import { ProductListPage } from './pages/ProductListPage'
@@ -32,7 +36,11 @@ export const router = createHashRouter([
   { path: '/products', element: <ProductListPage /> },
   { path: '/products/:ref', element: <ProductDetailPage /> },
   { path: '/products/:ref/quote', element: <QuoteFormPage /> },
+  { path: '/products/:ref/intent', element: <IntentFormPage /> },
   { path: '/quotes/mine', element: <MyQuotesPage /> },
+  { path: '/intents/mine', element: <MyIntentsPage /> },
+  { path: '/notifications', element: <NotificationsPage /> },
+  { path: '/notifications/:id', element: <NotificationDetailPage /> },
   { path: '/favorites', element: <FavoritesPage /> },
   { path: '/users/:id', element: <UserProfilePage /> },
   { path: '/profile', element: <ProfilePage /> },

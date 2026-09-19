@@ -424,3 +424,117 @@ export type CreateQuoteBody = {
 export type PatchQuoteBody = Partial<
   Omit<CreateQuoteBody, 'product_id' | 'side' | 'currency'>
 >
+
+// ---- 消費者意向價格（API.md 9）----
+
+/** GET /v1/products/{ref}/intents/floor：全部欄位都可能是 null（沒有官方行情時不設限）。 */
+export type PriceFloorOut = {
+  /** 低於此價會被後端拒絕（intent_below_floor）；null = 不設限。 */
+  floor_price: string | null
+  /** 推算基準：近 sample_days 日官方行情的中位數。 */
+  reference_price: string | null
+  currency: string | null
+  unit: string | null
+  sample_days: number
+  /** official_price_proxy:region / :country / :global，或 no_official_data。 */
+  source: string
+  /** 低於底線時要原樣顯示的提示語。 */
+  hint: string | null
+}
+
+export type IntentStatus = 'active' | 'superseded' | 'withdrawn'
+
+/** 為什麼沒被計入看板；null 代表有計入。影子封禁的人自己也看得到 shadowed——後端刻意如此，見 API.md 9.2。 */
+export type IntentExclusion =
+  | 'below_floor'
+  | 'outlier'
+  | 'shadowed'
+  | 'non_local'
+  | 'untrusted_ip'
+  | 'zero_weight'
+
+export type IntentOut = {
+  id: string
+  product: ProductOut
+  price: string
+  quantity: string | null
+  currency: string
+  unit: string
+  country_code: string
+  region: string | null
+  status: IntentStatus
+  excluded_reason: IntentExclusion | null
+  /** 提交當下的信譽權重（0.0 ~ 2.0）。 */
+  weight: number
+  floor_price: string | null
+  note: string | null
+  created_at: string
+}
+
+/**
+ * 區域意向看板（API.md 9.3）。刻意沒有算術平均；要顯示的錨點是 anchor_price
+ * （信譽加權中位數），median / trimmed_mean 只是對照。全部價格欄位在 sample_count 為 0 時是 null。
+ */
+export type IntentSummaryOut = {
+  product: ProductOut
+  region: string | null
+  country_code: string | null
+  currency: string | null
+  unit: string | null
+  anchor_price: string | null
+  median: string | null
+  trimmed_mean: string | null
+  q1: string | null
+  q3: string | null
+  /** IQR 容許區間 [Q1 − 1.5·IQR, Q3 + 1.5·IQR]，區間外視為離群值。 */
+  lower_bound: string | null
+  upper_bound: string | null
+  min_price: string | null
+  max_price: string | null
+  floor_price: string | null
+  /** 需求總量：只加總有填數量的意向；沒人填時為 null。 */
+  demand_quantity: string | null
+  demand_respondents: number
+  /** 納入計算的筆數。 */
+  sample_count: number
+  /** 總提交筆數，含被排除的。 */
+  submitted_count: number
+  excluded_count: number
+  exclusions: Partial<Record<IntentExclusion, number>>
+}
+
+/** GET /v1/me/reputation。回應刻意不含影子封禁狀態（API.md 9.4）。 */
+export type ReputationOut = {
+  weight: number
+  samples: number
+  hits: number
+  misses: number
+  has_verified_purchase: boolean
+}
+
+/** 產地開團通知（API.md 9.5）。intent_price 是當初填的意向價，對照 offer_price 看差多少。 */
+export type NotificationOut = {
+  id: string
+  product: ProductOut
+  offer_price: string
+  currency: string
+  unit: string
+  intent_price: string | null
+  quote_id: string | null
+  sent_at: string
+  opened_at: string | null
+  clicked_at: string | null
+}
+
+export type IntentCreateBody = {
+  price: string
+  quantity?: string
+  unit?: string
+  currency?: string
+  note?: string
+}
+
+export type NotificationResponseBody = {
+  /** true = 點了「前往購買」；false = 只是看過。 */
+  clicked: boolean
+}

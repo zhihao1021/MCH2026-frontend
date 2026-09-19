@@ -1,4 +1,4 @@
-import type { ProductCategory, QuoteStatus, UserRole } from '../api/types'
+import type { IntentExclusion, IntentStatus, ProductCategory, QuoteStatus, UserRole } from '../api/types'
 import type { Translate } from '../i18n'
 
 /**
@@ -15,4 +15,17 @@ export function roleLabel(t: Translate, role: UserRole): string {
 
 export function quoteStatusLabel(t: Translate, status: QuoteStatus): string {
   return t(`quoteStatus.${status}`)
+}
+
+export function intentStatusLabel(t: Translate, status: IntentStatus): string {
+  return t(`intentStatus.${status}`)
+}
+
+/**
+ * 沒被計入看板的原因。只翻譯使用者「能改善」的那幾種；
+ * shadowed / zero_weight 回 null，畫面上看起來跟有計入一樣——影子封禁的重點就是對方不知道（API.md 9.4）。
+ */
+export function intentExclusionLabel(t: Translate, reason: IntentExclusion | null): string | null {
+  if (reason === null || reason === 'shadowed' || reason === 'zero_weight') return null
+  return t(`intentExclusion.${reason}`)
 }

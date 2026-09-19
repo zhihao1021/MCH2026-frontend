@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiErrorNotice } from '../components/ApiErrorNotice'
 import { Deck, type DeckScreen } from '../components/Deck'
 import { FreshnessBadge } from '../components/FreshnessBadge'
+import { IntentBoard } from '../components/IntentBoard'
 import { ListView, type ListItem } from '../components/ListView'
 import { MarqueeText } from '../components/MarqueeText'
 import { useOptionsMenu } from '../components/OptionsMenu'
@@ -13,10 +14,11 @@ import { RoleBadge } from '../components/RoleBadge'
 import { Spinner } from '../components/Spinner'
 import { useToast } from '../components/Toast'
 import { ApiError } from '../api/client'
+import { getIntentSummary } from '../api/intents'
 import { getOfficialPrices, getProductOverview } from '../api/products'
 import { listQuotes } from '../api/quotes'
 import { formatCurrency, parseDecimal, parseDecimalOrNull } from '../api/decimal'
-import type { OfficialPriceOut, OverviewOut, Page as ApiPage, QuoteOut } from '../api/types'
+import type { IntentSummaryOut, OfficialPriceOut, OverviewOut, Page as ApiPage, QuoteOut } from '../api/types'
 import { useApi } from '../hooks/useApi'
 import { useAuth } from '../hooks/useAuth'
 import { useFavorites } from '../hooks/useFavorites'
@@ -85,12 +87,23 @@ export function ProductDetailPage() {
   const t = useT()
   // 從地區精靈進來時帶的 region：只拿來把該地區的市場排到前面，不做任何國家假設
   const region = searchParams.get('region')
+  // 意向看板的區域：登入者用自己檔案上的行政區（意向就是歸到這裡），
+  // 訪客退回精靈帶的 region。兩邊命名空間不一定一致（臺／台），後端會做正規化與退回全國
+  const intentRegion = auth.user?.location.subdivision_name ?? region ?? undefined
 
   const { data, loading, error, reload } = useApi(() => loadDetail(ref ?? ''), [ref])
+  // 意向看板另外抓：它的區域要等 auth 載完才知道，跟 overview 綁在一起會讓整頁重抓一次。
+  // auth 還在載時先回 null（幾乎立刻 resolve），載完再真的打一次；抓不到那一幕顯示「暫無資料」
+  const authLoading = auth.loading
+  const { data: intent, reload: reloadIntent } = useApi<IntentSummaryOut | null>(
+    () => (authLoading ? Promise.resolve(null) : getIntentSummary(ref ?? '', { region: intentRegion }).catch(() => null)),
+    [ref, intentRegion, authLoading],
+  )
 
-  // 換到別的作物時幕要回到第一幕；同一個路由元件不會重掛，所以把 ref 一起記在 state 裡
-  const [screenState, setScreenState] = useState({ ref, index: 0 })
-  const screenIndex = screenState.ref === ref ? screenState.index : 0
+  // 換到別的作物時幕要回到第一幕；同一個路由元件不會重掛，所以把 ref 一起記在 state 裡。
+  // index -1 = 還沒翻過頁，用 ?screen= 決定起始幕（提完期望價回來直接落在意向看板）
+  const wantedScreen = searchParams.get('screen')
+  const [screenState, setScreenState] = useState({ ref, index: -1 })
   const setScreenIndex = (index: number) => setScreenState({ ref, index })
 
   const toast = useToast()
@@ -124,6 +137,7 @@ export function ProductDetailPage() {
   }
 
   const quoteUrl = `/products/${encodeURIComponent(ref ?? '')}/quote`
+  const intentUrl = `/products/${encodeURIComponent(ref ?? '')}/intent`
   // 報價介面只給小農／盤商（後端算好的 can_quote）。還沒登入的人先給入口，
   // 進去會被導去登入；登入後若是消費者就完全不顯示。
   const canQuote = auth.user === null || auth.user.can_quote
@@ -136,7 +150,19 @@ export function ProductDetailPage() {
       onSelect: () => void toggleFavorite(),
     },
     { id: 'favorites', label: t('detail.menu.favorites'), onSelect: () => navigate('/favorites') },
-    { id: 'reload', label: t('common.refresh'), onSelect: reload },
+    {
+      id: 'reload',
+      label: t('common.refresh'),
+      onSelect: () => {
+        reload()
+        reloadIntent()
+      },
+    },
+    // 期望價任何登入者都能提（API.md 9.2）；未登入進去會被導去登入
+    { id: 'intent', label: t('detail.menu.newIntent'), onSelect: () => navigate(intentUrl) },
+    ...(auth.user !== null
+      ? [{ id: 'my-intents', label: t('detail.menu.myIntents'), onSelect: () => navigate('/intents/mine') }]
+      : []),
     ...(canQuote
       ? [
           { id: 'quote', label: t('detail.menu.newQuote'), onSelect: () => navigate(quoteUrl) },
@@ -237,6 +263,24 @@ export function ProductDetailPage() {
           ),
         },
       ],
+      intent: [
+        {
+          kind: 'intent',
+          selectable: false,
+          label: t('detail.screen.intent'),
+          body: (
+            <>
+              <h3>
+                {intent?.region !== null && intent?.region !== undefined
+                  ? t('detail.intent.headingRegion', { region: intent.region })
+                  : t('detail.intent.heading')}
+              </h3>
+              {intent !== null ? <IntentBoard summary={intent} /> : <p className="u-muted">{t('detail.intent.unavailable')}</p>}
+              <p className="u-muted">{t('detail.intent.hint')}</p>
+            </>
+          ),
+        },
+      ],
       quotes: chunk(quoters, QUOTERS_PER_SCREEN).map((group) => {
         const rows: ListItem[] = group.map((q) => ({
           id: q.seller.id,
@@ -308,6 +352,9 @@ export function ProductDetailPage() {
   }
 
   const screens: Screen[] = data === null ? [] : buildScreens(data)
+  const wantedIndex = wantedScreen === null ? -1 : screens.findIndex((s) => s.kind === wantedScreen)
+  const screenIndex =
+    screenState.ref === ref && screenState.index >= 0 ? screenState.index : Math.max(0, wantedIndex)
   const current = screens[Math.min(screenIndex, Math.max(0, screens.length - 1))]
 
   return (
@@ -328,12 +375,15 @@ export function ProductDetailPage() {
       }
       softKeys={{
         left: { label: t('common.options'), onPress: menu.open },
-        // 報價那一幕 Enter 交給清單開啟對方檔案；其他幕 Enter 直接去新增報價（消費者沒有這個鍵）
+        // 報價那一幕 Enter 交給清單開啟對方檔案；意向看板那一幕 Enter 去提期望價（誰都能）；
+        // 其他幕 Enter 直接去新增報價（消費者沒有這個鍵）
         center: current?.selectable
           ? { label: t('common.view') }
-          : canQuote
-            ? { label: t('detail.menu.newQuote'), onPress: () => navigate(quoteUrl) }
-            : { label: '' },
+          : current?.kind === 'intent'
+            ? { label: t('detail.menu.newIntent'), onPress: () => navigate(intentUrl) }
+            : canQuote
+              ? { label: t('detail.menu.newQuote'), onPress: () => navigate(quoteUrl) }
+              : { label: '' },
         right: { label: t('common.back') },
       }}
     >

@@ -34,6 +34,8 @@ src/
 │  ├─ ListView.tsx      清單
 │  ├─ OptionsMenu.tsx   LSK 叫出的選項選單（useOptionsMenu）
 │  ├─ Toast.tsx         短訊息提示（取代 alert）
+│  ├─ IntentGauge.tsx   期望價表單的「市場供需現實度」儀表
+│  ├─ IntentBoard.tsx   區域意向看板（錨點、Q1～Q3、需求總量、排除筆數）
 │  ├─ MiniMap.tsx       兩點小地圖（OSM 圖磚 + 自畫標記，載不到退示意圖）
 │  └─ Spinner.tsx       載入指示
 ├─ lib/
@@ -150,6 +152,25 @@ npm run lint
 - **字級用 pt**：沿用官方 Design Guide 的單位，方便對照文件調整。
 - **SCSS 只負責拆檔、巢狀與 mixin，顏色尺寸仍是 CSS custom properties**：
   螢幕級距與深色模式要在 runtime 由 media query 覆寫，SCSS 變數做不到。
+
+## 消費者意向價（防刷看板）
+
+`code_artifact.md` 的四層防護（成本底線、冷卻期、IQR／中位數、信譽權重與影子封禁、
+IP／地理圍欄、開團優先通知）**全部在後端**（API.md 第 9 節），前端不重算任何統計。
+前端只做三件事：
+
+| 畫面 | 路由 | 做的事 |
+| --- | --- | --- |
+| 作物詳情「意向」幕 | `/products/:ref?screen=intent` | 顯示 `GET /intents/summary` 的 `anchor_price`（信譽加權中位數）、Q1～Q3、需求總量與排除筆數。**不顯示算術平均**。範圍條裁到 IQR 容許區間內，離群值不會把錨點擠到邊邊 |
+| 提出期望價 | `/products/:ref/intent` | 任何登入者都能提（不看 `can_quote`）。先打 `GET /intents/floor`，輸入時即時畫「市場供需現實度」儀表（底線／官方中位數／意向錨點／你的落點），低於底線在前端就擋、顯示後端的 `hint`。冷卻、離群、封禁交給後端錯誤碼 |
+| 我的期望價 | `/intents/mine` | 單筆意向只有本人看得到。列出狀態與 `excluded_reason`，標題列顯示信譽權重。`shadowed` / `zero_weight` **刻意不顯示**——影子封禁的重點就是對方不知道 |
+| 產地開團通知 | `/notifications`、`/notifications/:id` | 一進單筆通知就 `respond {clicked:false}`，按「前往購買」再 `respond {clicked:true}`。漏打會被判成幽靈需求扣信譽 |
+
+意向看板的區域：登入者用自己檔案上的行政區（意向就是歸到這裡），訪客退回精靈帶的
+`?region=`。行政區名（`臺北市`）與市場地區名（`台北市`）不保證一致，正規化由後端做。
+
+`npm run mock` 也有這幾支端點（記憶體內、IQR 過濾、固定權重 1.0），沒有信譽模型與
+IP 檢核，要看影子封禁得接真後端。
 
 若要換成官方維護的完整型別，安裝 `@cloudmosa-inc/cloudphone-types`
 並刪掉 `src/types/cloudphone.d.ts`。

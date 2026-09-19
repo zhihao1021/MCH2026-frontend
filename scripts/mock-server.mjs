@@ -471,6 +471,128 @@ function favoriteOut(entry, locale, countryCode) {
 
 // ---- HTTP 工具 ----
 
+// ---- 消費者意向價格（API.md 9；記憶體內，重啟就重置） ----
+
+const intentsStore = new Map() // id -> 內部意向紀錄
+const notificationsStore = new Map() // id -> NotificationOut（mock 不會自己產生，留給日後手動塞）
+const INTENT_COOLDOWN_DAYS = 7
+/** 底線 = 近 7 日官方中位數 × 0.7，對齊真後端的 INTENT_FLOOR_RATIO 預設值（API.md 9.1）。 */
+const INTENT_FLOOR_RATIO = 0.7
+
+function median(xs) {
+  if (xs.length === 0) return null
+  const s = [...xs].sort((a, b) => a - b)
+  const mid = Math.floor(s.length / 2)
+  return s.length % 2 === 0 ? (s[mid - 1] + s[mid]) / 2 : s[mid]
+}
+
+function quantile(sorted, p) {
+  if (sorted.length === 0) return null
+  const pos = p * (sorted.length - 1)
+  const lo = Math.floor(pos)
+  const hi = Math.ceil(pos)
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo)
+}
+
+function intentFloor(product) {
+  const markets = marketsForProduct(product)
+  const lows = markets.flatMap((mk) => generateSeries(product, mk, 7).map((pt) => pt.avg))
+  const reference = median(lows)
+  if (reference === null) {
+    return { floor_price: null, reference_price: null, currency: null, unit: null, sample_days: 7, source: 'no_official_data', hint: null }
+  }
+  return {
+    floor_price: round2(reference * INTENT_FLOOR_RATIO).toFixed(2),
+    reference_price: round2(reference).toFixed(2),
+    currency: 'TWD',
+    unit: product.default_unit,
+    sample_days: 7,
+    source: 'official_price_proxy:country',
+    hint: '若出價過低脫離產地成本，小農將判定為無效需求而拒絕接單；合理報價才能最快促成產地直運。',
+  }
+}
+
+function intentToOut(intent, locale) {
+  return {
+    id: intent.id,
+    product: toProductOut(intent.product, locale),
+    price: intent.price.toFixed(4),
+    quantity: intent.quantity === null ? null : intent.quantity.toFixed(3),
+    currency: intent.currency,
+    unit: intent.unit,
+    country_code: intent.country_code,
+    region: intent.region,
+    status: intent.status,
+    excluded_reason: intent.excluded_reason,
+    weight: intent.weight,
+    floor_price: intent.floor_price,
+    note: intent.note,
+    created_at: intent.created_at,
+  }
+}
+
+/**
+ * 區域看板：IQR 過濾 → 中位數／截尾均值。mock 沒有信譽模型，anchor 就等於中位數；
+ * 影子封禁、IP 檢核那些只有真後端做得到。
+ */
+function computeIntentSummary(product, region, locale) {
+  // 臺／台 視為同一個地區：意向的 region 來自 ISO 行政區名，看板查詢可能帶市場那套拼法（API.md 9.1）
+  const norm = (r) => (r === null ? null : r.replace(/臺/g, '台').trim())
+  const all = [...intentsStore.values()].filter(
+    (i) => i.status === 'active' && i.product.id === product.id && (region === null || norm(i.region) === norm(region)),
+  )
+  const floor = intentFloor(product)
+  const empty = {
+    product: toProductOut(product, locale),
+    region,
+    country_code: null,
+    currency: null,
+    unit: null,
+    anchor_price: null, median: null, trimmed_mean: null, q1: null, q3: null,
+    lower_bound: null, upper_bound: null, min_price: null, max_price: null,
+    floor_price: floor.floor_price,
+    demand_quantity: null, demand_respondents: 0,
+    sample_count: 0, submitted_count: all.length, excluded_count: 0, exclusions: {},
+  }
+  if (all.length === 0) return empty
+  const prices = all.map((i) => i.price).sort((a, b) => a - b)
+  let q1 = null, q3 = null, lower = null, upper = null
+  let kept = all
+  const exclusions = {}
+  if (prices.length >= 4) {
+    q1 = quantile(prices, 0.25)
+    q3 = quantile(prices, 0.75)
+    const iqr = q3 - q1
+    lower = q1 - 1.5 * iqr
+    upper = q3 + 1.5 * iqr
+    kept = all.filter((i) => i.price >= lower && i.price <= upper)
+    const outliers = all.length - kept.length
+    if (outliers > 0) exclusions.outlier = outliers
+  }
+  const keptPrices = kept.map((i) => i.price).sort((a, b) => a - b)
+  const cut = Math.floor(keptPrices.length * 0.15)
+  const trimmed = keptPrices.slice(cut, keptPrices.length - cut)
+  const withQty = kept.filter((i) => i.quantity !== null)
+  const fmt = (n) => (n === null ? null : round2(n).toFixed(2))
+  return {
+    ...empty,
+    country_code: kept[0].country_code,
+    currency: kept[0].currency,
+    unit: kept[0].unit,
+    anchor_price: fmt(median(keptPrices)),
+    median: fmt(median(keptPrices)),
+    trimmed_mean: fmt(trimmed.reduce((s, v) => s + v, 0) / trimmed.length),
+    q1: fmt(q1), q3: fmt(q3), lower_bound: fmt(lower), upper_bound: fmt(upper),
+    min_price: prices[0].toFixed(4),
+    max_price: prices[prices.length - 1].toFixed(4),
+    demand_quantity: withQty.length === 0 ? null : withQty.reduce((s, i) => s + i.quantity, 0).toFixed(3),
+    demand_respondents: withQty.length,
+    sample_count: kept.length,
+    excluded_count: all.length - kept.length,
+    exclusions,
+  }
+}
+
 function sendJson(res, status, body) {
   const text = JSON.stringify(body)
   res.writeHead(status, {
@@ -778,6 +900,140 @@ async function handleRequest(req, res) {
     const target = findUserById(decodeURIComponent(publicUserMatch[1]))
     if (!target || !target.is_active) return sendError(res, 404, 'user_not_found', '找不到此使用者')
     sendJson(res, 200, toPublicUser(target))
+    return
+  }
+
+  // ---- 消費者意向價格 ----
+
+  const intentFloorMatch = path.match(/^\/v1\/products\/([^/]+)\/intents\/floor$/)
+  if (req.method === 'GET' && intentFloorMatch) {
+    const product = resolveProduct(decodeURIComponent(intentFloorMatch[1]))
+    if (!product) return sendError(res, 404, 'product_not_found', '找不到此品項')
+    sendJson(res, 200, intentFloor(product))
+    return
+  }
+
+  const intentSummaryMatch = path.match(/^\/v1\/products\/([^/]+)\/intents\/summary$/)
+  if (req.method === 'GET' && intentSummaryMatch) {
+    const product = resolveProduct(decodeURIComponent(intentSummaryMatch[1]))
+    if (!product) return sendError(res, 404, 'product_not_found', '找不到此品項')
+    sendJson(res, 200, computeIntentSummary(product, url.searchParams.get('region'), locale))
+    return
+  }
+
+  const intentCreateMatch = path.match(/^\/v1\/products\/([^/]+)\/intents$/)
+  if (req.method === 'POST' && intentCreateMatch) {
+    const user = userFromAuthHeader(req)
+    if (!user) return sendError(res, 401, 'invalid_token', 'access token 無效或已過期')
+    const product = resolveProduct(decodeURIComponent(intentCreateMatch[1]))
+    if (!product) return sendError(res, 404, 'product_not_found', '找不到此品項')
+    const region = user.location?.subdivision_name ?? null
+    // 依序檢查：地區 → 冷卻 → 底線（API.md 9.2）
+    if (region === null) return sendError(res, 400, 'intent_region_required', '請先在個人設定填寫所在地區，才能提交意向價格')
+    const previous = [...intentsStore.values()].find(
+      (i) => i.userId === user.id && i.product.id === product.id && i.status === 'active',
+    )
+    if (previous) {
+      const elapsed = Date.now() - Date.parse(previous.created_at)
+      const cooldownMs = INTENT_COOLDOWN_DAYS * 86_400_000
+      if (elapsed < cooldownMs) {
+        const retryAfter = Math.ceil((cooldownMs - elapsed) / 1000)
+        return sendError(res, 429, 'intent_cooldown', `這個作物還要 ${Math.ceil(retryAfter / 86_400)} 天才能再次調整意向價格`, {
+          retry_after: retryAfter,
+          cooldown_days: INTENT_COOLDOWN_DAYS,
+        })
+      }
+    }
+    const body = await readBody(req)
+    const price = Number(body.price)
+    if (!(price > 0)) return sendError(res, 422, 'validation_error', 'price 必須大於 0')
+    const floor = intentFloor(product)
+    if (floor.floor_price !== null && price < Number(floor.floor_price)) {
+      return sendError(res, 400, 'intent_below_floor', floor.hint, {
+        floor_price: floor.floor_price,
+        reference_price: floor.reference_price,
+        currency: floor.currency,
+        unit: floor.unit,
+      })
+    }
+    if (previous) previous.status = 'superseded'
+    const intent = {
+      id: randomUUID(),
+      userId: user.id,
+      product,
+      price,
+      quantity: body.quantity === undefined || body.quantity === null ? null : Number(body.quantity),
+      currency: body.currency ?? user.currency ?? 'TWD',
+      unit: body.unit ?? product.default_unit,
+      country_code: user.country_code ?? 'TW',
+      region,
+      status: 'active',
+      excluded_reason: null,
+      weight: 1.0,
+      floor_price: floor.floor_price,
+      note: body.note ?? null,
+      created_at: new Date().toISOString(),
+    }
+    intentsStore.set(intent.id, intent)
+    sendJson(res, 201, intentToOut(intent, locale))
+    return
+  }
+
+  if (req.method === 'GET' && path === '/v1/me/intents') {
+    const user = userFromAuthHeader(req)
+    if (!user) return sendError(res, 401, 'invalid_token', 'access token 無效或已過期')
+    const includeHistory = url.searchParams.get('include_history') === 'true'
+    const list = [...intentsStore.values()]
+      .filter((i) => i.userId === user.id && (includeHistory || i.status === 'active'))
+      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+    const page = paginate(list, url)
+    sendJson(res, 200, { ...page, items: page.items.map((i) => intentToOut(i, locale)) })
+    return
+  }
+
+  const myIntentMatch = path.match(/^\/v1\/me\/intents\/([^/]+)$/)
+  if (req.method === 'DELETE' && myIntentMatch) {
+    const user = userFromAuthHeader(req)
+    if (!user) return sendError(res, 401, 'invalid_token', 'access token 無效或已過期')
+    const intent = intentsStore.get(decodeURIComponent(myIntentMatch[1]))
+    if (!intent) return sendError(res, 404, 'intent_not_found', '找不到這筆意向')
+    if (intent.userId !== user.id) return sendError(res, 403, 'not_intent_owner', '只能撤回自己的意向')
+    intent.status = 'withdrawn'
+    sendJson(res, 200, intentToOut(intent, locale))
+    return
+  }
+
+  if (req.method === 'GET' && path === '/v1/me/reputation') {
+    const user = userFromAuthHeader(req)
+    if (!user) return sendError(res, 401, 'invalid_token', 'access token 無效或已過期')
+    // mock 沒有信譽模型：樣本數照實算，權重固定 1.0
+    const samples = [...intentsStore.values()].filter((i) => i.userId === user.id).length
+    sendJson(res, 200, { weight: 1.0, samples, hits: 0, misses: 0, has_verified_purchase: false })
+    return
+  }
+
+  if (req.method === 'GET' && path === '/v1/me/notifications') {
+    const user = userFromAuthHeader(req)
+    if (!user) return sendError(res, 401, 'invalid_token', 'access token 無效或已過期')
+    const list = [...notificationsStore.values()].filter((n) => n.userId === user.id)
+    const page = paginate(list, url)
+    sendJson(res, 200, { ...page, items: page.items.map(({ userId: _userId, ...n }) => n) })
+    return
+  }
+
+  const respondMatch = path.match(/^\/v1\/me\/notifications\/([^/]+)\/respond$/)
+  if (req.method === 'POST' && respondMatch) {
+    const user = userFromAuthHeader(req)
+    if (!user) return sendError(res, 401, 'invalid_token', 'access token 無效或已過期')
+    const notification = notificationsStore.get(decodeURIComponent(respondMatch[1]))
+    if (!notification) return sendError(res, 404, 'notification_not_found', '找不到這則通知')
+    if (notification.userId !== user.id) return sendError(res, 403, 'not_notification_owner', '這則通知不是發給你的')
+    const body = await readBody(req)
+    const now = new Date().toISOString()
+    notification.opened_at ??= now
+    if (body.clicked === true) notification.clicked_at ??= now
+    const { userId: _userId, ...out } = notification
+    sendJson(res, 200, out)
     return
   }
 
