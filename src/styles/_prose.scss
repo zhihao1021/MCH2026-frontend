@@ -1,0 +1,22 @@
+/// 一般內容頁
+.prose {
+  h2 {
+    font-size: var(--fs-headline);
+    font-weight: var(--fw-headline);
+    margin: 0 0 6px;
+  }
+
+  p {
+    margin: 0 0 8px;
+  }
+
+  dl {
+    margin: 0;
+  }
+
+  dt {
+    color: var(--c-muted);
+    font-size: var(--fs-footnote);
+    margin-top: 6px;
+  }
+}

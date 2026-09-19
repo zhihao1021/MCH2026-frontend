@@ -1,0 +1,26 @@
+/// QQVGA（128x160 / 120x160）專用覆寫。
+/// 所有跟螢幕級距有關的調整都走這個 mixin，方便日後一次找齊。
+@mixin qqvga {
+  @media (max-width: 176px) {
+    @content;
+  }
+}
+
+/// HVGA 觸控機（360x480，2025 年後機型）。
+@mixin hvga-up {
+  @media (min-width: 321px) {
+    @content;
+  }
+}
+
+@mixin truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/// 固定高度的橫列（Header / 軟鍵列）。
+@mixin fixed-row($height) {
+  flex: 0 0 $height;
+  height: $height;
+}

@@ -1,0 +1,74 @@
+@use 'mixins' as *;
+
+/// App Shell：Header / Content / SoftKeyBar 三段式固定版型
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+
+  &__header {
+    @include fixed-row(var(--header-h));
+
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 var(--screen-margin);
+    background: var(--c-header-bg);
+    color: var(--c-header-fg);
+    font-size: var(--fs-header);
+    font-weight: var(--fw-header);
+  }
+
+  &__header-title {
+    flex: 1 1 auto;
+    @include truncate;
+  }
+
+  &__content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: var(--screen-margin);
+
+    // 需要整頁貼齊（例如清單）時使用
+    &--flush {
+      padding: 0;
+    }
+  }
+
+  &__softkeys {
+    @include fixed-row(var(--softkey-h));
+
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 2px;
+    padding: 0 4px;
+    background: var(--c-softkey-bg);
+    color: var(--c-softkey-fg);
+    font-size: var(--fs-footnote);
+    border-top: 1px solid var(--c-line);
+  }
+
+  &__softkey {
+    @include truncate;
+
+    &--left {
+      text-align: left;
+    }
+
+    &--center {
+      text-align: center;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 0 4px;
+    }
+
+    &--right {
+      text-align: right;
+    }
+  }
+}

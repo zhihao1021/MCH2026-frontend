@@ -1,0 +1,70 @@
+@use 'mixins' as *;
+
+/*
+ * Cloud Phone design tokens
+ * 依據官方 Design Guide（QVGA 240x320 / QQVGA 128x160）
+ * https://developer.cloudfone.com/docs/guides/cloud-phone-design/
+ *
+ * 刻意用 CSS custom properties 而非 SCSS 變數：
+ * 螢幕級距與深色模式要在 runtime 由 media query 覆寫，SCSS 變數做不到。
+ * SCSS 在這個專案負責的是 partial 拆檔、巢狀與 mixin。
+ */
+:root {
+  // Layout
+  --header-h: 40px;
+  --softkey-h: 32px;
+  --screen-margin: 8pt;
+
+  // Typography（沿用官方 Design Guide 的 pt 單位，方便對照文件）
+  --font-family: Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --fs-header: 18pt; // 官方建議 24pt，實測 240px 寬易被截斷，這裡保守一點
+  --fs-headline: 14pt;
+  --fs-body: 12pt;
+  --fs-footnote: 10pt;
+
+  --fw-header: 700;
+  --fw-headline: 900;
+  --fw-body: 400;
+
+  // Color
+  --c-bg: #ffffff;
+  --c-fg: #1a1a1a;
+  --c-muted: #6b7280;
+  --c-line: #e3e3e3;
+  --c-accent: #005fcc;
+  --c-accent-fg: #ffffff;
+  --c-header-bg: #00347a;
+  --c-header-fg: #ffffff;
+  --c-softkey-bg: #f2f2f2;
+  --c-softkey-fg: #1a1a1a;
+  --c-overlay: rgba(0, 0, 0, 0.45);
+
+  // Misc
+  --row-h: 36px;
+
+  @include qqvga {
+    --header-h: 20px;
+    --softkey-h: 20px;
+    --screen-margin: 4pt;
+
+    --fs-header: 11pt;
+    --fs-headline: 10pt;
+    --fs-body: 9pt;
+    --fs-footnote: 8pt;
+
+    --fw-headline: 700;
+    --row-h: 24px;
+  }
+}
+
+// 部分機型支援系統深色模式
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #101114;
+    --c-fg: #f5f5f5;
+    --c-muted: #9aa0a6;
+    --c-line: #2a2d33;
+    --c-softkey-bg: #1c1f25;
+    --c-softkey-fg: #f5f5f5;
+  }
+}

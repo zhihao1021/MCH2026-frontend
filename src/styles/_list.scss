@@ -1,0 +1,45 @@
+@use 'mixins' as *;
+
+.list {
+  display: block;
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    min-height: var(--row-h);
+    padding: 4px var(--screen-margin);
+    border-bottom: 1px solid var(--c-line);
+
+    &.is-focused {
+      background: var(--c-accent);
+      color: var(--c-accent-fg);
+
+      .u-muted {
+        color: var(--c-accent-fg);
+        opacity: 0.85;
+      }
+    }
+  }
+
+  &__item-body {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  &__item-title {
+    font-size: var(--fs-body);
+  }
+
+  &__item-trailing {
+    flex: 0 0 auto;
+    font-size: var(--fs-footnote);
+  }
+
+  &__empty {
+    padding: var(--screen-margin);
+    color: var(--c-muted);
+    text-align: center;
+  }
+}
