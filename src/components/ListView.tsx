@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { useT } from '../i18n'
 import { useListNav } from '../hooks/useListNav'
 import { MarqueeText } from './MarqueeText'
 
@@ -34,11 +35,12 @@ export function ListView<T extends ListItem>({
   onSelect,
   onFocusChange,
   onHorizontal,
-  emptyText = '沒有項目',
+  emptyText,
   enabled = true,
   initialIndex = 0,
   showIndex = false,
 }: Props<T>) {
+  const t = useT()
   const { index, itemProps } = useListNav({
     count: items.length,
     enabled,
@@ -53,7 +55,7 @@ export function ListView<T extends ListItem>({
   }, [index, items, onFocusChange])
 
   if (items.length === 0) {
-    return <p className="list__empty">{emptyText}</p>
+    return <p className="list__empty">{emptyText ?? t('common.emptyList')}</p>
   }
 
   return (

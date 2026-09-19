@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useT } from '../i18n'
 
 type Props = {
   seconds: number
@@ -11,6 +12,7 @@ type Props = {
  * 而不是把 seconds 同步進 state（那樣需要多一個 effect 才能重置倒數）。
  */
 export function CountdownText({ seconds, onComplete }: Props) {
+  const t = useT()
   const [remaining, setRemaining] = useState(seconds)
 
   useEffect(() => {
@@ -24,5 +26,5 @@ export function CountdownText({ seconds, onComplete }: Props) {
 
   if (remaining <= 0) return null
 
-  return <span className="u-muted">{remaining} 秒後可重新索取</span>
+  return <span className="u-muted">{t('login.otp.countdown', { count: remaining })}</span>
 }

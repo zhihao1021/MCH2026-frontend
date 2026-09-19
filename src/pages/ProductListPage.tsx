@@ -6,11 +6,13 @@ import { Page } from '../components/Page'
 import { PagedListView } from '../components/PagedListView'
 import { listProducts } from '../api/products'
 import { useApi } from '../hooks/useApi'
+import { useT } from '../i18n'
 import { PAGE_SIZE, pageCountOf } from '../lib/paging'
 
 /** 全部作物有 130+ 筆，交給後端分頁，每翻一頁抓一次。 */
 export function ProductListPage() {
   const navigate = useNavigate()
+  const t = useT()
   const [pageIndex, setPageIndex] = useState(0)
 
   const { data, loading, error, reload } = useApi(
@@ -26,9 +28,9 @@ export function ProductListPage() {
 
   return (
     <Page
-      title="所有作物"
+      title={t('products.title')}
       flush
-      softKeys={{ center: { label: '選擇' }, right: { label: '返回' } }}
+      softKeys={{ center: { label: t('common.select') }, right: { label: t('common.back') } }}
     >
       {error !== null && <ApiErrorNotice error={error} onRetry={reload} />}
       <PagedListView
@@ -37,7 +39,7 @@ export function ProductListPage() {
         pageCount={pageCountOf(data?.total ?? 0)}
         onPageChange={setPageIndex}
         loading={loading}
-        emptyText={loading ? '載入中…' : '目前沒有作物資料'}
+        emptyText={loading ? t('common.loading') : t('products.empty')}
         onSelect={(item) => navigate(`/products/${encodeURIComponent(item.id)}`)}
       />
     </Page>

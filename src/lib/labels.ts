@@ -1,36 +1,18 @@
 import type { ProductCategory, QuoteStatus, UserRole } from '../api/types'
+import type { Translate } from '../i18n'
 
-const CATEGORY_LABELS: Record<ProductCategory, string> = {
-  vegetable: '蔬菜',
-  fruit: '水果',
-  flower: '花卉',
-  grain: '穀物',
-  livestock: '畜牧',
-  fishery: '漁產',
-  other: '其他',
+/**
+ * 列舉值 → 畫面文字。字串本身放在 i18n 字典裡，這裡只負責組 key，
+ * 所以這些函式仍然是純函式、不碰 React。
+ */
+export function categoryLabel(t: Translate, category: ProductCategory): string {
+  return t(`categories.${category}`)
 }
 
-export function categoryLabel(category: ProductCategory): string {
-  return CATEGORY_LABELS[category]
+export function roleLabel(t: Translate, role: UserRole): string {
+  return t(`roles.${role}`)
 }
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  consumer: '消費者',
-  farmer: '小農',
-  trader: '盤商',
-}
-
-export function roleLabel(role: UserRole): string {
-  return ROLE_LABELS[role]
-}
-
-const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
-  active: '有效',
-  expired: '已過期',
-  withdrawn: '已下架',
-  hidden: '已隱藏',
-}
-
-export function quoteStatusLabel(status: QuoteStatus): string {
-  return QUOTE_STATUS_LABELS[status]
+export function quoteStatusLabel(t: Translate, status: QuoteStatus): string {
+  return t(`quoteStatus.${status}`)
 }

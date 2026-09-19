@@ -34,11 +34,19 @@ src/
 │  ├─ ListView.tsx      清單
 │  ├─ OptionsMenu.tsx   LSK 叫出的選項選單（useOptionsMenu）
 │  ├─ Toast.tsx         短訊息提示（取代 alert）
+│  ├─ MiniMap.tsx       兩點小地圖（OSM 圖磚 + 自畫標記，載不到退示意圖）
 │  └─ Spinner.tsx       載入指示
 ├─ lib/
 │  ├─ keys.ts           鍵名 → CloudKey 對應
 │  ├─ device.ts         螢幕級距、navigator.hasFeature 偵測
+│  ├─ distance.ts       兩點的直線距離／方位（haversine）與可讀格式
+│  ├─ tiles.ts          Web Mercator 圖磚座標（OSM 圖磚用）
 │  └─ storage.ts        localStorage 薄封裝（失敗一律吞掉）
+├─ i18n/
+│  ├─ index.tsx        I18nProvider / useT / translate
+│  ├─ locale.ts        語系的執行期狀態（React 之外也要用：API 標頭、Intl）
+│  ├─ en.ts            英文字典，同時是「有哪些 key」的唯一真相
+│  └─ zh-Hant.ts       繁中字典（型別是 Messages，少一個 key 就編譯不過）
 ├─ styles/              SCSS partials，入口是 main.scss
 │  ├─ _mixins.scss      qqvga / truncate / fixed-row
 │  ├─ _tokens.scss      設計 token；QQVGA 以 media query 覆寫
@@ -113,6 +121,32 @@ npm run lint
   只靠 Provider 自身 re-render 會被 React 跳過整個子樹，軟鍵列會永遠是空的。
 - **不做旋轉動畫**：遠端渲染下每一幀都是網路往返（4G 下約 20 FPS 上限），
   動畫越簡單越省頻寬。
+- **地圖不用地圖庫**：使用者檔案最後一幕要的只是「兩個點加一條線」，
+  Leaflet／MapLibre 那套可拖曳縮放的觸控模型在功能機上用不到，光是 JS 就比整個 app 還大。
+  直接算 Web Mercator 圖磚座標貼 OpenStreetMap 圖磚，只要有一張圖磚載不到
+  （或使用者開了省流量模式）就整張退回自己畫的方位示意圖。
+- **i18n 不用 i18next**：兩個語言、扁平 key、`{name}` 內插，整套 60 行就寫完了，
+  不值得為它加一個比 app 還大的相依。英文字典是 key 的唯一真相（`MessageKey`
+  由它推導），其他語系型別上就是 `Record<MessageKey, string>`——**漏翻會編譯失敗**。
+  預設英文，選擇存在 localStorage，首頁與設定頁的選項都能切換。
+- **語系不只影響文字**：切換時同步 `Accept-Language`（品項名稱由後端依語系回，
+  見 API.md 2.3）、`Intl.NumberFormat` 的幣別格式、`<html lang>` 與分頁標題。
+  所以語系的「真值」放在 React 之外的 `i18n/locale.ts`：第一支 API 請求可能比
+  Provider 的 effect 還早發出（子元件 effect 本來就跑在父層之前）。
+- **地區清單只列「有東西可看」的作物**：地區精靈的作物清單 = 後端產地篩選
+  （`GET /v1/products?region=…&country_code=…`，只回在該地有官方行情的品項）
+  ∪ 該地區的使用者報價品項。兩邊都沒有的作物不列——點進去只會是一片空白。
+  地區名稱可能跨國撞名，所以精靈一路帶著 `country_code`。
+- **收藏一次抓齊、集中在一個 provider**：`/me/favorites` 不分頁（上限 30 筆）
+  且已附最新價與漲跌，所以 `FavoritesProvider` 登入後抓一次放著，
+  作物詳情頁只要問「收藏了沒」不必再打 API；加入是冪等的 PUT，不用先查。
+- **車程距離查得到才用**：道路距離要有路網資料，前端算不出來，所以打 OSRM
+  的 `/route` 服務（`VITE_ROUTING_URL`，預設是**只能用於開發測試**的公共伺服器，
+  正式營運要自架或由後端代打）。查詢中／失敗／無路可走／省流量模式一律退回
+  haversine 直線距離並寫明原因——距離只是輔助資訊，不值得為它卡住整個畫面。
+- **定位不用 `navigator.geolocation`**：遠端渲染下拿到的是 CloudMosa 機房的座標。
+  改打 `POST /v1/me/location/detect`（後端做 IP 反查），且結果只是建議值——
+  個人檔案的座標欄位一定要能手動改。
 - **字級用 pt**：沿用官方 Design Guide 的單位，方便對照文件調整。
 - **SCSS 只負責拆檔、巢狀與 mixin，顏色尺寸仍是 CSS custom properties**：
   螢幕級距與深色模式要在 runtime 由 media query 覆寫，SCSS 變數做不到。

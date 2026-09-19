@@ -1,4 +1,5 @@
 import { formatCurrency } from '../api/decimal'
+import { useT } from '../i18n'
 
 type Props = {
   min: number
@@ -15,8 +16,10 @@ type Props = {
  * 誠實呈現成「min–avg–max 範圍條」，不假裝是統計箱形圖。
  */
 export function QuoteRangeBar({ min, avg, max, currency, unit, count }: Props) {
+  const t = useT()
+
   if (count === 0) {
-    return <p className="u-muted">尚無報價</p>
+    return <p className="u-muted">{t('quoteRange.none')}</p>
   }
 
   const span = max - min
@@ -33,7 +36,11 @@ export function QuoteRangeBar({ min, avg, max, currency, unit, count }: Props) {
         <div className="range-bar__tick" style={{ left: `${tickPercent}%` }} />
       </div>
       <p className="range-bar__caption">
-        平均 {formatCurrency(avg, currency)} / {unit}・根據 {count} 筆報價
+        {t(count === 1 ? 'quoteRange.caption.one' : 'quoteRange.caption.other', {
+          price: formatCurrency(avg, currency),
+          unit,
+          count,
+        })}
       </p>
     </div>
   )

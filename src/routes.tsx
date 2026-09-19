@@ -1,6 +1,7 @@
 import { createHashRouter } from 'react-router-dom'
 import { AboutPage } from './pages/AboutPage'
 import { CropPickerPage } from './pages/CropPickerPage'
+import { FavoritesPage } from './pages/FavoritesPage'
 import { HomePage } from './pages/HomePage'
 import { LoginOtpPage } from './pages/LoginOtpPage'
 import { LoginPhonePage } from './pages/LoginPhonePage'
@@ -32,6 +33,7 @@ export const router = createHashRouter([
   { path: '/products/:ref', element: <ProductDetailPage /> },
   { path: '/products/:ref/quote', element: <QuoteFormPage /> },
   { path: '/quotes/mine', element: <MyQuotesPage /> },
+  { path: '/favorites', element: <FavoritesPage /> },
   { path: '/users/:id', element: <UserProfilePage /> },
   { path: '/profile', element: <ProfilePage /> },
   { path: '/login', element: <LoginPhonePage /> },

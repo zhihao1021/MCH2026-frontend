@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ApiError } from '../api/client'
+import { ApiError, AuthExpiredError } from '../api/client'
+import { useI18n } from '../i18n'
 
 type ApiState<T> = {
   data: T | null
@@ -9,6 +10,8 @@ type ApiState<T> = {
 
 function toApiError(err: unknown): ApiError {
   if (err instanceof ApiError) return err
+  // 登入逾期有自己的例外型別，轉成同一個錯誤碼，畫面才會顯示「請重新登入」而不是通用訊息
+  if (err instanceof AuthExpiredError) return new ApiError(401, 'invalid_token', err.message)
   return new ApiError(0, 'unknown_error', err instanceof Error ? err.message : '發生未知錯誤')
 }
 
@@ -16,8 +19,12 @@ function toApiError(err: unknown): ApiError {
  * 各頁共用的資料載入 pattern：loading 顯示 <Spinner/>，
  * error 顯示 <ApiErrorNotice error onRetry={reload}/>。
  * deps 變動時重新抓取；用 cancelled flag 防止 unmount 後 setState。
+ *
+ * 語系也算依賴：品項名稱是後端依 Accept-Language 回的（API.md 2.3），
+ * 換了語言不重抓的話，畫面會變成英文介面配中文作物名。
  */
 export function useApi<T>(fetcher: () => Promise<T>, deps: unknown[]): ApiState<T> & { reload: () => void } {
+  const { locale } = useI18n()
   const [state, setState] = useState<ApiState<T>>({ data: null, loading: true, error: null })
   const [tick, setTick] = useState(0)
   const fetcherRef = useRef(fetcher)
@@ -40,7 +47,7 @@ export function useApi<T>(fetcher: () => Promise<T>, deps: unknown[]): ApiState<
       cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, tick])
+  }, [...deps, tick, locale])
 
   const reload = useCallback(() => setTick((t) => t + 1), [])
 

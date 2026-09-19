@@ -11,13 +11,18 @@ import { PriceLineChart } from '../components/PriceLineChart'
 import { QuoteRangeBar } from '../components/QuoteRangeBar'
 import { RoleBadge } from '../components/RoleBadge'
 import { Spinner } from '../components/Spinner'
-import { getProductOverview } from '../api/products'
+import { useToast } from '../components/Toast'
+import { ApiError } from '../api/client'
+import { getOfficialPrices, getProductOverview } from '../api/products'
 import { listQuotes } from '../api/quotes'
 import { formatCurrency, parseDecimal, parseDecimalOrNull } from '../api/decimal'
-import type { OverviewOut, QuoteOut } from '../api/types'
+import type { OfficialPriceOut, OverviewOut, Page as ApiPage, QuoteOut } from '../api/types'
 import { useApi } from '../hooks/useApi'
 import { useAuth } from '../hooks/useAuth'
+import { useFavorites } from '../hooks/useFavorites'
+import { useT } from '../i18n'
 import { categoryLabel, roleLabel } from '../lib/labels'
+import { sideShortLabel } from '../lib/quoteSide'
 import { getSectionOrder, type ProductSectionKey } from '../lib/productSections'
 import { sameRegion } from '../lib/region'
 
@@ -26,16 +31,31 @@ const DAYS = 14
 // 市場那一幕整幕都是單行清單，放 5 列
 const QUOTERS_PER_SCREEN = 3
 const MARKETS_PER_SCREEN = 5
+/**
+ * 市場清單走 /prices/official（分頁端點，上限 200）而不是 overview 的 official：
+ * overview 的 markets_limit 預設只有 10 筆，但這一幕是翻頁顯示的，
+ * 卡在 10 筆會讓第 11 個以後的市場永遠翻不到。
+ */
+const MARKETS_LIMIT = 200
+const QUOTES_LIMIT = 50
 
-type Detail = { overview: OverviewOut; quotes: QuoteOut[] }
+type Detail = {
+  overview: OverviewOut
+  quotes: QuoteOut[]
+  /** 抓不到時為 null，畫面退回 overview 附的那幾筆。 */
+  markets: ApiPage<OfficialPriceOut> | null
+}
 
 async function loadDetail(ref: string): Promise<Detail> {
   const overview = await getProductOverview(ref, { days: DAYS })
-  // 報價清單抓不到不該讓整頁掛掉，退成空清單就好
-  const quotes = await listQuotes({ productId: overview.product.id, limit: 50 })
-    .then((page) => page.items)
-    .catch(() => [] as QuoteOut[])
-  return { overview, quotes }
+  // 報價與市場清單抓不到都不該讓整頁掛掉，各自退成空的就好
+  const [quotes, markets] = await Promise.all([
+    listQuotes({ productId: overview.product.id, limit: QUOTES_LIMIT })
+      .then((page) => page.items)
+      .catch(() => [] as QuoteOut[]),
+    getOfficialPrices(ref, { limit: MARKETS_LIMIT }).catch(() => null),
+  ])
+  return { overview, quotes, markets }
 }
 
 function chunk<T>(list: T[], size: number): T[][] {
@@ -62,6 +82,7 @@ export function ProductDetailPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const auth = useAuth()
+  const t = useT()
   // 從地區精靈進來時帶的 region：只拿來把該地區的市場排到前面，不做任何國家假設
   const region = searchParams.get('region')
 
@@ -72,34 +93,74 @@ export function ProductDetailPage() {
   const screenIndex = screenState.ref === ref ? screenState.index : 0
   const setScreenIndex = (index: number) => setScreenState({ ref, index })
 
+  const toast = useToast()
+  const favorites = useFavorites()
+  const product = data?.overview.product ?? null
+  const favorited = product !== null && favorites.isFavorite(product.id)
+
+  const toggleFavorite = async () => {
+    if (product === null) return
+    if (auth.user === null) {
+      navigate(`/login?returnTo=${encodeURIComponent(`/products/${ref ?? ''}`)}`)
+      return
+    }
+    try {
+      if (favorited) {
+        await favorites.remove(product)
+        toast(t('detail.toast.unfavorited'))
+      } else {
+        await favorites.add(product)
+        toast(t('detail.toast.favorited'))
+      }
+    } catch (err) {
+      // 收藏有數量上限，這個錯誤要講清楚是幾項，不能只說「失敗」
+      const limitReached = err instanceof ApiError && err.code === 'favorite_limit_reached'
+      toast(
+        limitReached
+          ? t('detail.toast.limitReached', { limit: favorites.limit })
+          : t('common.failed'),
+      )
+    }
+  }
+
   const quoteUrl = `/products/${encodeURIComponent(ref ?? '')}/quote`
   // 報價介面只給小農／盤商（後端算好的 can_quote）。還沒登入的人先給入口，
   // 進去會被導去登入；登入後若是消費者就完全不顯示。
   const canQuote = auth.user === null || auth.user.can_quote
 
-  const menu = useOptionsMenu('選項', [
-    { id: 'reload', label: '重新整理', onSelect: reload },
+  const menu = useOptionsMenu(t('common.options'), [
+    {
+      id: 'favorite',
+      label: favorited ? t('detail.menu.unfavorite') : t('detail.menu.favorite'),
+      disabled: product === null,
+      onSelect: () => void toggleFavorite(),
+    },
+    { id: 'favorites', label: t('detail.menu.favorites'), onSelect: () => navigate('/favorites') },
+    { id: 'reload', label: t('common.refresh'), onSelect: reload },
     ...(canQuote
       ? [
-          { id: 'quote', label: '新增報價', onSelect: () => navigate(quoteUrl) },
-          { id: 'my-quotes', label: '我的報價', onSelect: () => navigate('/quotes/mine') },
+          { id: 'quote', label: t('detail.menu.newQuote'), onSelect: () => navigate(quoteUrl) },
+          { id: 'my-quotes', label: t('detail.menu.myQuotes'), onSelect: () => navigate('/quotes/mine') },
         ]
       : []),
-    { id: 'all', label: '所有作物', onSelect: () => navigate('/products') },
+    { id: 'all', label: t('detail.menu.allProducts'), onSelect: () => navigate('/products') },
   ])
 
-  function buildScreens({ overview, quotes }: Detail): Screen[] {
+  function buildScreens({ overview, quotes, markets: marketPage }: Detail): Screen[] {
     const { product, image, official, official_series: series } = overview
     const latestAvg = series?.points.at(-1)?.avg ?? official[0]?.price_avg ?? null
     const currency = series?.currency ?? official[0]?.currency ?? 'TWD'
     // 價格單位以資料庫回傳的為準：走勢 → 官方價 → 品項預設單位
     const unit = series?.unit ?? official[0]?.unit ?? product.default_unit
     const quoters = uniqueQuoters(quotes)
+    const allMarkets = marketPage?.items ?? official
+    // 超過 200 個市場的品項目前不存在，真的出現時至少要講出來，不能默默吃掉
+    const hiddenMarkets = marketPage === null ? 0 : Math.max(0, marketPage.total - marketPage.items.length)
     // 市場的 region 是後端各市場自帶的欄位；選過地區就把同地區的市場排前面，其餘保持後端順序
     const markets =
       region === null
-        ? official
-        : [...official].sort(
+        ? allMarkets
+        : [...allMarkets].sort(
             (a, b) => Number(sameRegion(b.region, region)) - Number(sameRegion(a.region, region)),
           )
 
@@ -108,14 +169,14 @@ export function ProductDetailPage() {
         {
           kind: 'fairPrice',
           selectable: false,
-          label: '均價',
+          label: t('detail.screen.fairPrice'),
           body: (
             <>
               {image !== null && (
                 <div className="product-detail__hero">
                   <img src={image.url} alt={product.name} />
                   <p className="product-detail__image-credit">
-                    圖片：
+                    {t('detail.image.credit')}
                     {image.source_url !== null ? (
                       <a href={image.source_url} target="_blank" rel="noreferrer">
                         {image.source ?? 'Wikimedia Commons'}
@@ -128,16 +189,19 @@ export function ProductDetailPage() {
                   </p>
                 </div>
               )}
-              <h3>公平價格（官方均價）</h3>
+              <h3>{t('detail.fairPrice.heading')}</h3>
               {latestAvg !== null ? (
                 <p className="product-detail__fair-price">
                   {formatCurrency(latestAvg, currency)} / {unit}
                 </p>
               ) : (
-                <p className="u-muted">暫無官方資料</p>
+                <p className="u-muted">{t('detail.fairPrice.none')}</p>
               )}
               <p className="u-muted">
-                {categoryLabel(product.category)}・單位 {product.default_unit}
+                {t('detail.meta', {
+                  category: categoryLabel(t, product.category),
+                  unit: product.default_unit,
+                })}
               </p>
               <p>
                 <FreshnessBadge updatedAt={overview.updated_at} />
@@ -150,10 +214,10 @@ export function ProductDetailPage() {
         {
           kind: 'chart',
           selectable: false,
-          label: '走勢',
+          label: t('detail.screen.chart'),
           body: (
             <>
-              <h3>歷史價格走勢（近 {DAYS} 天）</h3>
+              <h3>{t('detail.chart.heading', { days: DAYS })}</h3>
               {series !== null ? (
                 <PriceLineChart
                   points={series.points.map((p) => ({
@@ -167,7 +231,7 @@ export function ProductDetailPage() {
                   changePct={series.change_pct}
                 />
               ) : (
-                <p className="u-muted">尚無走勢資料</p>
+                <p className="u-muted">{t('detail.chart.none')}</p>
               )}
             </>
           ),
@@ -176,19 +240,19 @@ export function ProductDetailPage() {
       quotes: chunk(quoters, QUOTERS_PER_SCREEN).map((group) => {
         const rows: ListItem[] = group.map((q) => ({
           id: q.seller.id,
-          title: q.seller.business_name ?? q.seller.display_name ?? '未具名使用者',
-          subtitle: `${q.side === 'sell' ? '賣' : '收'} ${formatCurrency(q.price, q.currency)} / ${q.unit}${
+          title: q.seller.business_name ?? q.seller.display_name ?? t('userProfile.unnamed'),
+          subtitle: `${sideShortLabel(t, q.side)} ${formatCurrency(q.price, q.currency)} / ${q.unit}${
             q.seller.region !== null ? `・${q.seller.region}` : ''
           }`,
-          trailing: roleLabel(q.seller.role),
+          trailing: roleLabel(t, q.seller.role),
         }))
         return {
           kind: 'quotes',
           selectable: rows.length > 0,
-          label: '報價',
+          label: t('detail.screen.quotes'),
           body: (
             <>
-              <h3>使用者報價</h3>
+              <h3>{t('detail.quotes.heading')}</h3>
               <QuoteRangeBar
                 min={parseDecimalOrNull(overview.quotes.price_min) ?? 0}
                 avg={parseDecimalOrNull(overview.quotes.price_avg) ?? 0}
@@ -201,7 +265,7 @@ export function ProductDetailPage() {
                 <ListView
                   items={rows}
                   enabled={!menu.isOpen}
-                  emptyText="還沒有人提交報價"
+                  emptyText={t('detail.quotes.empty')}
                   onSelect={(item) => navigate(`/users/${encodeURIComponent(item.id)}`)}
                 />
               </div>
@@ -209,16 +273,16 @@ export function ProductDetailPage() {
           ),
         }
       }),
-      markets: chunk(markets, MARKETS_PER_SCREEN).map((group) => ({
+      markets: chunk(markets, MARKETS_PER_SCREEN).map((group, i, groups) => ({
         kind: 'markets',
         selectable: false,
-        label: '市場',
+        label: t('detail.screen.markets'),
         body: (
           <>
-            <h3>各市場官方最新行情</h3>
+            <h3>{t('detail.markets.heading')}</h3>
             <div className="deck__list">
               {group.length === 0 ? (
-                <p className="u-muted">目前沒有市場資料</p>
+                <p className="u-muted">{t('detail.markets.empty')}</p>
               ) : (
                 <ul className="product-detail__markets">
                   {group.map((o) => (
@@ -232,6 +296,9 @@ export function ProductDetailPage() {
                 </ul>
               )}
             </div>
+            {i === groups.length - 1 && hiddenMarkets > 0 && (
+              <p className="u-muted">{t('detail.markets.more', { count: hiddenMarkets })}</p>
+            )}
           </>
         ),
       })),
@@ -245,18 +312,29 @@ export function ProductDetailPage() {
 
   return (
     <Page
-      title={data?.overview.product.name ?? '作物詳情'}
+      title={data?.overview.product.name ?? t('detail.title')}
       flush
-      headerAside={data !== null ? <RoleBadge role={auth.user?.role ?? 'consumer'} /> : undefined}
+      headerAside={
+        data !== null ? (
+          <>
+            {favorited && (
+              <span className="badge" aria-label={t('detail.favorited.aria')}>
+                ★
+              </span>
+            )}
+            <RoleBadge role={auth.user?.role ?? 'consumer'} />
+          </>
+        ) : undefined
+      }
       softKeys={{
-        left: { label: '選項', onPress: menu.open },
+        left: { label: t('common.options'), onPress: menu.open },
         // 報價那一幕 Enter 交給清單開啟對方檔案；其他幕 Enter 直接去新增報價（消費者沒有這個鍵）
         center: current?.selectable
-          ? { label: '查看' }
+          ? { label: t('common.view') }
           : canQuote
-            ? { label: '新增報價', onPress: () => navigate(quoteUrl) }
+            ? { label: t('detail.menu.newQuote'), onPress: () => navigate(quoteUrl) }
             : { label: '' },
-        right: { label: '返回' },
+        right: { label: t('common.back') },
       }}
     >
       {loading && data === null && <Spinner />}

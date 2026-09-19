@@ -110,6 +110,9 @@ export type UnitSystem = 'metric' | 'imperial'
 /** 位置公開精細度：exact=精確座標/地址、approximate=大概位置、region=只顯示縣市、private=不公開。 */
 export type LocationVisibility = 'exact' | 'approximate' | 'region' | 'private'
 
+/** 別人看到的座標精度（API.md 4.7）：approximate_1km 是模糊化到小數 2 位、約 1 公里。 */
+export type LocationPrecision = 'exact' | 'approximate_1km' | 'hidden'
+
 export type LocationOut = {
   country_code: string
   country_name: string
@@ -234,6 +237,23 @@ export type SourcesResponse = {
   load_errors: { key: string; reason: string; detail?: string }[]
 }
 
+/**
+ * 別人看得到的位置（API.md 5.1）：欄位依對方的 visibility 遞減，
+ * `precision` 說明座標可信到什麼程度——hidden 時 latitude/longitude 一定是 null。
+ */
+export type PublicLocation = {
+  country_code: string
+  country_name: string
+  subdivision_code: string | null
+  subdivision_name: string | null
+  locality: string | null
+  address_line: string | null
+  latitude: number | null
+  longitude: number | null
+  precision: LocationPrecision
+  formatted: string
+}
+
 /** GET /v1/users/{id}（API.md 5.1）：別人看得到的檔案，不含電話；location 依對方的 visibility 遞減。 */
 export type PublicUserOut = {
   id: string
@@ -243,9 +263,38 @@ export type PublicUserOut = {
   bio: string | null
   avatar_url: string | null
   website_url: string | null
-  location: Pick<LocationOut, 'country_code' | 'country_name' | 'subdivision_name' | 'locality' | 'formatted'>
+  location: PublicLocation
   active_quote_count: number
   member_since: string
+}
+
+/** 收藏清單附的最新官方價（API.md 4.9）。非產季或該國沒接資料源時整包是 null。 */
+export type FavoriteLatest = {
+  trade_date: string
+  price_avg: string
+  currency: string
+  unit: string
+  /** 聚合到的其中一個市場名稱。 */
+  market_name: string | null
+  /** 這個價格聚合了幾個市場。 */
+  market_count: number
+  /** 相對前一個有資料的交易日的漲跌幅（%）；只有一天資料時是 null。 */
+  change_pct: number | null
+}
+
+export type FavoriteOut = {
+  product: ProductOut
+  favorited_at: string
+  latest: FavoriteLatest | null
+}
+
+export type FavoritesResponse = {
+  items: FavoriteOut[]
+  total: number
+  /** 收藏數量上限（目前 30）。 */
+  limit: number
+  /** 這次的價格是用哪一國的市場算的。 */
+  country_code: string
 }
 
 // ---- 請求 body ----
@@ -302,8 +351,28 @@ export type LocationIn = {
   visibility?: LocationVisibility
 }
 
+/**
+ * POST /v1/me/location/detect（API.md 4.4）：依連線 IP 推估的「建議值」，不會存檔。
+ * 誤差常達數十公里，`notice` 必須原樣顯示給使用者，避免被當成 GPS 定位。
+ */
+export type LocationSuggestionOut = {
+  country_code: string | null
+  country_name: string | null
+  subdivision_code: string | null
+  subdivision_name: string | null
+  locality: string | null
+  latitude: number | null
+  longitude: number | null
+  timezone: string | null
+  provider: string
+  method: string
+  notice: string
+}
+
 export type RegionSummary = {
   region: string
+  /** 地區名稱可能跨國撞名，要精確比對就得連國碼一起看（API.md 7.9）。 */
+  country_code: string
   market_count: number
 }
 
@@ -325,6 +394,12 @@ export type SubdivisionOut = {
   code: string
   name: string
   name_en: string
+  /** 該國對這一級的稱呼（縣市 / Region / State…）。 */
+  type?: string
+  /** 1 = 一級行政區，2 = 二級。 */
+  level?: number
+  /** 還有下一級可以往下鑽（用 ?parent= 查）。 */
+  has_children?: boolean
 }
 
 export type CreateQuoteBody = {

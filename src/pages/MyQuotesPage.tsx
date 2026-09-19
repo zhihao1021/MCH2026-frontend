@@ -11,7 +11,9 @@ import { formatCurrency } from '../api/decimal'
 import type { QuoteOut } from '../api/types'
 import { useApi } from '../hooks/useApi'
 import { useAuth } from '../hooks/useAuth'
+import { useT } from '../i18n'
 import { quoteStatusLabel } from '../lib/labels'
+import { sideShortLabel } from '../lib/quoteSide'
 
 const RETURN_TO = '/quotes/mine'
 
@@ -19,6 +21,7 @@ export function MyQuotesPage() {
   const navigate = useNavigate()
   const toast = useToast()
   const auth = useAuth()
+  const t = useT()
   const { data, loading, error, reload } = useApi(() => getMyQuotes({ limit: 50 }), [])
   const [selected, setSelected] = useState<QuoteOut | null>(null)
 
@@ -32,48 +35,52 @@ export function MyQuotesPage() {
     async (quote: QuoteOut) => {
       try {
         await deleteQuote(quote.id)
-        toast('已下架')
+        toast(t('myQuotes.toast.withdrawn'))
         reload()
       } catch {
-        toast('下架失敗，請稍後再試')
+        toast(t('myQuotes.toast.withdrawFailed'))
       }
     },
-    [toast, reload],
+    [toast, reload, t],
   )
 
   const renew = useCallback(
     async (quote: QuoteOut) => {
       try {
         await patchQuote(quote.id, { valid_hours: 48 })
-        toast('已重新上架')
+        toast(t('myQuotes.toast.renewed'))
         reload()
       } catch {
-        toast('重新上架失敗，請稍後再試')
+        toast(t('myQuotes.toast.renewFailed'))
       }
     },
-    [toast, reload],
+    [toast, reload, t],
   )
 
   const menuItems: OptionItem[] =
     selected === null
       ? []
       : [
-          { id: 'view', label: '查看作物', onSelect: () => navigate(`/products/${selected.product.slug}`) },
+          {
+            id: 'view',
+            label: t('myQuotes.menu.view'),
+            onSelect: () => navigate(`/products/${selected.product.slug}`),
+          },
           ...(selected.status === 'active'
-            ? [{ id: 'withdraw', label: '下架', onSelect: () => void withdraw(selected) }]
+            ? [{ id: 'withdraw', label: t('myQuotes.menu.withdraw'), onSelect: () => void withdraw(selected) }]
             : selected.status === 'withdrawn' || selected.status === 'expired'
-              ? [{ id: 'renew', label: '重新上架', onSelect: () => void renew(selected) }]
+              ? [{ id: 'renew', label: t('myQuotes.menu.renew'), onSelect: () => void renew(selected) }]
               : []),
         ]
 
-  const menu = useOptionsMenu('報價操作', menuItems)
+  const menu = useOptionsMenu(t('myQuotes.menu.title'), menuItems)
 
   if (auth.user === null) return null
 
   const items: ListItem[] = (data?.items ?? []).map((q) => ({
     id: q.id,
     title: q.product.name,
-    subtitle: `${q.side === 'sell' ? '賣' : '收'}・${quoteStatusLabel(q.status)}`,
+    subtitle: `${sideShortLabel(t, q.side)}・${quoteStatusLabel(t, q.status)}`,
     // 單位跟著這筆報價當初存的 q.unit，不是商品目前的 default_unit——
     // 商品單位之後如果變了，舊報價仍要照當時資料庫記錄的單位顯示。
     trailing: `${formatCurrency(q.price, q.currency)} / ${q.unit}`,
@@ -81,19 +88,19 @@ export function MyQuotesPage() {
 
   return (
     <Page
-      title="我的報價"
+      title={t('myQuotes.title')}
       flush
       softKeys={{
-        left: { label: '操作', onPress: menu.open },
-        center: { label: '操作' },
-        right: { label: '返回' },
+        left: { label: t('myQuotes.key.action'), onPress: menu.open },
+        center: { label: t('myQuotes.key.action') },
+        right: { label: t('common.back') },
       }}
     >
       {error !== null && <ApiErrorNotice error={error} onRetry={reload} />}
       <ListView
         items={items}
         enabled={!menu.isOpen}
-        emptyText={loading ? '載入中…' : '目前沒有報價紀錄'}
+        emptyText={loading ? t('common.loading') : t('myQuotes.empty')}
         onSelect={(item) => {
           const quote = data?.items.find((q) => q.id === item.id) ?? null
           setSelected(quote)

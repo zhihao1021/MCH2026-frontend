@@ -1,39 +1,71 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ListView, type ListItem } from '../components/ListView'
 import { useOptionsMenu } from '../components/OptionsMenu'
 import { Page } from '../components/Page'
-import { useNavigate } from 'react-router-dom'
+import { useToast } from '../components/Toast'
+import { useFavorites } from '../hooks/useFavorites'
+import { translate, useI18n } from '../i18n'
 
-const ITEMS: ListItem[] = [
-  { id: 'wizard', title: '依地區查詢作物', subtitle: '選擇地區與季節，快速找到作物行情' },
-  { id: 'products', title: '瀏覽所有作物', subtitle: '不篩選地區季節，直接看清單' },
-]
+const PATHS: Record<string, string> = {
+  wizard: '/wizard/region',
+  products: '/products',
+  favorites: '/favorites',
+}
 
 export function HomePage() {
   const navigate = useNavigate()
+  const toast = useToast()
+  const favorites = useFavorites()
+  const { t, locale, setLocale } = useI18n()
   const [position, setPosition] = useState(1)
 
-  const menu = useOptionsMenu('選項', [
-    { id: 'settings', label: '設定', onSelect: () => navigate('/settings') },
-    { id: 'about', label: '關於', onSelect: () => navigate('/about') },
+  const items: ListItem[] = [
+    { id: 'wizard', title: t('home.wizard.title'), subtitle: t('home.wizard.subtitle') },
+    { id: 'products', title: t('home.products.title'), subtitle: t('home.products.subtitle') },
+    {
+      id: 'favorites',
+      title: t('home.favorites.title'),
+      subtitle: t('home.favorites.subtitle'),
+      // 收藏數直接顯示在列上：未登入或還沒收藏過就不顯示數字
+      trailing: favorites.items.length > 0 ? `${favorites.items.length}` : undefined,
+    },
+  ]
+
+  // 語言就放在首頁的選項裡：這是使用者第一眼看到的畫面，
+  // 看不懂介面的人不該還要先找到「設定」才換得掉語言
+  const nextLocale = locale === 'en' ? 'zh-Hant' : 'en'
+
+  const menu = useOptionsMenu(t('common.options'), [
+    {
+      id: 'language',
+      label: t('home.menu.language', { language: t(`language.${nextLocale}`) }),
+      onSelect: () => {
+        setLocale(nextLocale)
+        // 提示訊息要用「切換後」的語言：這一輪的 t 還是舊語系
+        toast(translate(nextLocale, 'settings.toast.language', { language: translate(nextLocale, `language.${nextLocale}`) }))
+      },
+    },
+    { id: 'settings', label: t('home.menu.settings'), onSelect: () => navigate('/settings') },
+    { id: 'about', label: t('home.menu.about'), onSelect: () => navigate('/about') },
   ])
 
   return (
     <Page
-      title="農產行情"
-      headerAside={<span className="u-muted">{`${position}/${ITEMS.length}`}</span>}
+      title={t('app.title')}
+      headerAside={<span className="u-muted">{`${position}/${items.length}`}</span>}
       flush
       softKeys={{
-        left: { label: '選項', onPress: menu.open },
-        center: { label: '開啟' },
-        right: { label: '離開' },
+        left: { label: t('common.options'), onPress: menu.open },
+        center: { label: t('common.open') },
+        right: { label: t('common.exit') },
       }}
     >
       <ListView
-        items={ITEMS}
+        items={items}
         enabled={!menu.isOpen}
         onFocusChange={(_, index) => setPosition(index + 1)}
-        onSelect={(item) => navigate(item.id === 'wizard' ? '/wizard/region' : '/products')}
+        onSelect={(item) => navigate(PATHS[item.id] ?? '/')}
       />
       {menu.element}
     </Page>

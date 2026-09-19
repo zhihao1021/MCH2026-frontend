@@ -11,6 +11,10 @@ type Props<T extends ListItem> = {
   emptyText: string
   loadingLabel?: string
   onSelect: (item: T, index: number) => void
+  /** 焦點改變時通知，例如讓「選項」知道現在停在哪一筆。 */
+  onFocusChange?: (item: T | undefined, index: number) => void
+  /** 彈窗開啟時傳 false，否則按鍵會穿透到清單。 */
+  enabled?: boolean
 }
 
 /**
@@ -26,6 +30,8 @@ export function PagedListView<T extends ListItem>({
   emptyText,
   loadingLabel,
   onSelect,
+  onFocusChange,
+  enabled = true,
 }: Props<T>) {
   const goToPage = (next: number): boolean => {
     if (next < 0 || next >= pageCount) return false
@@ -39,10 +45,11 @@ export function PagedListView<T extends ListItem>({
         key={pageIndex}
         items={items}
         showIndex
-        enabled={!loading}
+        enabled={enabled && !loading}
         emptyText={emptyText}
         onHorizontal={(direction) => goToPage(pageIndex + direction)}
         onSelect={onSelect}
+        onFocusChange={onFocusChange}
       />
       {items.length > 0 && (
         <div className="list__pager">

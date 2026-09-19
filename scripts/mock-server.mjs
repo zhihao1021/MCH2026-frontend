@@ -130,8 +130,62 @@ function findSubdivision(countryCode, subdivisionCode) {
   return TW_SUBDIVISIONS.find((s) => s.code === subdivisionCode)
 }
 
-function formatLocation(countryName, subdivisionName, locality) {
-  return [countryName, subdivisionName, locality].filter(Boolean).join(' ')
+function formatLocation(countryName, subdivisionName, locality, addressLine) {
+  return [countryName, subdivisionName, locality, addressLine].filter(Boolean).join(' ')
+}
+
+/**
+ * 別人看到的使用者檔案（API.md 5.1）：位置依 visibility 遞減。
+ * approximate 會把座標四捨五入到小數 2 位（約 1 公里），對齊真後端的行為。
+ */
+function toPublicUser(user) {
+  const loc = user.location
+  const visibility = loc.visibility ?? 'region'
+  const isPrivate = visibility === 'private'
+  const isExact = visibility === 'exact'
+  const isApproximate = visibility === 'approximate'
+  const hasCoords = loc.latitude !== null && loc.longitude !== null
+
+  let latitude = null
+  let longitude = null
+  if (hasCoords && isExact) {
+    latitude = loc.latitude
+    longitude = loc.longitude
+  } else if (hasCoords && isApproximate) {
+    latitude = Math.round(loc.latitude * 100) / 100
+    longitude = Math.round(loc.longitude * 100) / 100
+  }
+  const precision = latitude === null ? 'hidden' : isExact ? 'exact' : 'approximate_1km'
+
+  const subdivisionName = isPrivate ? null : loc.subdivision_name
+  const locality = isPrivate ? null : loc.locality
+  const addressLine = isExact ? loc.address_line : null
+
+  return {
+    id: user.id,
+    display_name: user.display_name,
+    business_name: user.business_name,
+    role: user.role,
+    bio: user.bio,
+    avatar_url: user.avatar_url,
+    website_url: user.website_url,
+    location: {
+      country_code: loc.country_code,
+      country_name: loc.country_name,
+      subdivision_code: isPrivate ? null : loc.subdivision_code,
+      subdivision_name: subdivisionName,
+      locality,
+      address_line: addressLine,
+      latitude,
+      longitude,
+      precision,
+      formatted: formatLocation(loc.country_name, subdivisionName, locality, addressLine),
+    },
+    active_quote_count: [...quotesStore.values()].filter(
+      (q) => q.seller.id === user.id && q.status === 'active',
+    ).length,
+    member_since: user.created_at,
+  }
 }
 
 function buildLocation(countryCode, overrides = {}) {
@@ -153,7 +207,7 @@ function buildLocation(countryCode, overrides = {}) {
     timezone: overrides.timezone ?? country.default_timezone,
     visibility: overrides.visibility ?? 'region',
     updated_at: overrides.hasData ? new Date().toISOString() : null,
-    formatted: formatLocation(countryName, subdivisionName, locality),
+    formatted: formatLocation(countryName, subdivisionName, locality, overrides.address_line ?? null),
   }
 }
 
@@ -258,6 +312,18 @@ function generateSeries(product, market, days) {
   return points
 }
 
+/**
+ * 這個市場有沒有這個品項的行情。真實資料本來就不是每個市場都有每個品項，
+ * mock 用確定性雜湊決定（約 2/3），地區篩選在本機才看得出效果。
+ */
+function marketHasProduct(market, product) {
+  return seedFromString(`has:${market.id}:${product.slug}`)() > 0.35
+}
+
+function marketsForProduct(product) {
+  return MARKETS.filter((mk) => marketHasProduct(mk, product))
+}
+
 function officialPriceOut(product, market, point) {
   return {
     market_id: market.id,
@@ -353,6 +419,56 @@ function computeQuotesSummary(product) {
   }
 }
 
+// ---- 收藏（記憶體內，重啟就重置） ----
+
+const FAVORITE_LIMIT = 30
+const favoritesByUser = new Map() // userId -> [{ productId, favoritedAt }]
+
+function favoritesOf(userId) {
+  return favoritesByUser.get(userId) ?? []
+}
+
+/**
+ * 收藏清單附的最新官方價（API.md 4.9）：跨市場以交易量加權，
+ * 並和前一個交易日比出漲跌。該國沒有這個品項的行情時回 null。
+ */
+function latestFor(product, countryCode) {
+  const markets = marketsForProduct(product).filter((mk) => mk.country_code === countryCode)
+  if (markets.length === 0) return null
+
+  const series = markets.map((mk) => generateSeries(product, mk, 2))
+  const weighted = (index) => {
+    const points = series.map((s) => s[index])
+    const volume = points.reduce((sum, p) => sum + p.vol, 0)
+    const avg =
+      volume > 0
+        ? points.reduce((sum, p) => sum + p.avg * p.vol, 0) / volume
+        : points.reduce((sum, p) => sum + p.avg, 0) / points.length
+    return { d: points[0].d, avg }
+  }
+  const last = weighted(1)
+  const prev = weighted(0)
+
+  return {
+    trade_date: last.d,
+    price_avg: round2(last.avg).toFixed(2),
+    currency: 'TWD',
+    unit: product.default_unit,
+    market_name: markets[0].name,
+    market_count: markets.length,
+    change_pct: prev.avg > 0 ? round2(((last.avg - prev.avg) / prev.avg) * 100) : null,
+  }
+}
+
+function favoriteOut(entry, locale, countryCode) {
+  const product = PRODUCTS.find((p) => p.id === entry.productId)
+  return {
+    product: toProductOut(product, locale),
+    favorited_at: entry.favoritedAt,
+    latest: latestFor(product, countryCode),
+  }
+}
+
 // ---- HTTP 工具 ----
 
 function sendJson(res, status, body) {
@@ -362,6 +478,11 @@ function sendJson(res, status, body) {
     'Content-Length': Buffer.byteLength(text),
   })
   res.end(text)
+}
+
+function sendNoContent(res) {
+  res.writeHead(204)
+  res.end()
 }
 
 function sendError(res, status, code, message, details) {
@@ -526,6 +647,77 @@ async function handleRequest(req, res) {
     }
   }
 
+  // 「取得目前位置」：真後端是拿 X-Forwarded-For 做 IP 反查，
+  // mock 直接回一組固定的臺北座標，重點是讓前端練到 notice 與「使用者可修改」的流程
+  if (req.method === 'POST' && path === '/v1/me/location/detect') {
+    const user = userFromAuthHeader(req)
+    if (!user) return sendError(res, 401, 'invalid_token', 'access token 無效或已過期')
+    sendJson(res, 200, {
+      country_code: 'TW',
+      country_name: '臺灣',
+      subdivision_code: 'TW-TPE',
+      subdivision_name: '台北市',
+      locality: 'Taipei',
+      latitude: 25.053,
+      longitude: 121.5259,
+      timezone: 'Asia/Taipei',
+      provider: 'mock',
+      method: 'ip',
+      notice: '這是依照連線 IP 推估的大概位置，可能有數十公里誤差，請確認後再儲存。',
+    })
+    return
+  }
+
+  // ---- 收藏 ----
+
+  const favoriteMatch = path.match(/^\/v1\/me\/favorites\/([^/]+)$/)
+  if (favoriteMatch) {
+    const user = userFromAuthHeader(req)
+    if (!user) return sendError(res, 401, 'invalid_token', 'access token 無效或已過期')
+    const product = resolveProduct(decodeURIComponent(favoriteMatch[1]))
+    if (!product) return sendError(res, 404, 'product_not_found', '找不到此品項')
+    const list = favoritesOf(user.id)
+
+    if (req.method === 'PUT') {
+      const existing = list.find((f) => f.productId === product.id)
+      // 冪等：已經收藏過就原樣回傳，不會變成兩筆
+      if (!existing) {
+        if (list.length >= FAVORITE_LIMIT) {
+          return sendError(res, 409, 'favorite_limit_reached', '收藏數已達上限', { limit: FAVORITE_LIMIT })
+        }
+        list.unshift({ productId: product.id, favoritedAt: new Date().toISOString() })
+        favoritesByUser.set(user.id, list)
+      }
+      const entry = existing ?? list[0]
+      sendJson(res, 200, favoriteOut(entry, locale, user.country_code))
+      return
+    }
+
+    if (req.method === 'DELETE') {
+      const index = list.findIndex((f) => f.productId === product.id)
+      if (index < 0) return sendError(res, 404, 'favorite_not_found', '這個品項不在收藏中')
+      list.splice(index, 1)
+      favoritesByUser.set(user.id, list)
+      sendNoContent(res)
+      return
+    }
+  }
+
+  if (req.method === 'GET' && path === '/v1/me/favorites') {
+    const user = userFromAuthHeader(req)
+    if (!user) return sendError(res, 401, 'invalid_token', 'access token 無效或已過期')
+    const countryCode = url.searchParams.get('country_code') ?? user.country_code
+    const list = favoritesOf(user.id)
+    sendJson(res, 200, {
+      // 不分頁：有數量上限，一次全給比較省往返
+      items: list.map((entry) => favoriteOut(entry, locale, countryCode)),
+      total: list.length,
+      limit: FAVORITE_LIMIT,
+      country_code: countryCode,
+    })
+    return
+  }
+
   // ---- 地理資料 ----
 
   if (path === '/v1/geo/countries') {
@@ -555,12 +747,37 @@ async function handleRequest(req, res) {
     for (const mk of MARKETS) {
       if (countryCode && mk.country_code !== countryCode) continue
       if (!mk.region) continue
-      counts.set(mk.region, (counts.get(mk.region) ?? 0) + 1)
+      // 地區名稱可能跨國撞名，所以 key 要含國碼，回應也要帶國碼（API.md 7.9）
+      const key = `${mk.country_code}:${mk.region}`
+      const entry = counts.get(key) ?? { region: mk.region, country_code: mk.country_code, market_count: 0 }
+      entry.market_count += 1
+      counts.set(key, entry)
     }
-    const regions = [...counts.entries()]
-      .map(([region, market_count]) => ({ region, market_count }))
-      .sort((a, b) => b.market_count - a.market_count)
+    const regions = [...counts.values()].sort((a, b) => b.market_count - a.market_count)
     sendJson(res, 200, regions)
+    return
+  }
+
+  // ---- 公開個人檔案 ----
+
+  let publicUserMatch = path.match(/^\/v1\/users\/([^/]+)\/quotes$/)
+  if (req.method === 'GET' && publicUserMatch) {
+    const target = findUserById(decodeURIComponent(publicUserMatch[1]))
+    if (!target || !target.is_active) return sendError(res, 404, 'user_not_found', '找不到此使用者')
+    const viewer = userFromAuthHeader(req)
+    const list = [...quotesStore.values()]
+      .filter((q) => q.seller.id === target.id && q.status === 'active')
+      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+    const page = paginate(list, url)
+    sendJson(res, 200, { ...page, items: page.items.map((q) => quoteToOut(q, viewer?.id)) })
+    return
+  }
+
+  publicUserMatch = path.match(/^\/v1\/users\/([^/]+)$/)
+  if (req.method === 'GET' && publicUserMatch) {
+    const target = findUserById(decodeURIComponent(publicUserMatch[1]))
+    if (!target || !target.is_active) return sendError(res, 404, 'user_not_found', '找不到此使用者')
+    sendJson(res, 200, toPublicUser(target))
     return
   }
 
@@ -714,8 +931,21 @@ async function handleRequest(req, res) {
   if (path === '/v1/products') {
     const q = url.searchParams.get('q')?.toLowerCase()
     const category = url.searchParams.get('category')
+    // 產地篩選（API.md 7.1）：只回在該地確實有官方行情的品項
+    const region = url.searchParams.get('region')
+    const productCountry = url.searchParams.get('country_code')
+    const marketId = url.searchParams.get('market_id')
     let list = PRODUCTS.slice().sort((a, b) => b.popularity - a.popularity)
     if (category) list = list.filter((p) => p.category === category)
+    if (region || productCountry || marketId) {
+      const scoped = MARKETS.filter(
+        (mk) =>
+          (!region || mk.region === region) &&
+          (!productCountry || mk.country_code === productCountry) &&
+          (!marketId || mk.id === marketId),
+      )
+      list = list.filter((p) => scoped.some((mk) => marketHasProduct(mk, p)))
+    }
     if (q) {
       list = list.filter((p) =>
         Object.values(p.names).some((name) => name.toLowerCase().includes(q)) ||
@@ -735,7 +965,9 @@ async function handleRequest(req, res) {
     const days = Math.min(365, Math.max(2, Number(url.searchParams.get('days') ?? 14)))
     const marketsLimit = Math.min(50, Math.max(1, Number(url.searchParams.get('markets_limit') ?? 10)))
     const countryCode = url.searchParams.get('country_code')
-    const markets = MARKETS.filter((mk) => !countryCode || mk.country_code === countryCode).slice(0, marketsLimit)
+    const markets = marketsForProduct(product)
+      .filter((mk) => !countryCode || mk.country_code === countryCode)
+      .slice(0, marketsLimit)
 
     const official = markets.map((mk) => {
       const series = generateSeries(product, mk, days)
@@ -777,7 +1009,7 @@ async function handleRequest(req, res) {
     if (!product) return sendError(res, 404, 'product_not_found', '找不到此品項')
     const countryCode = url.searchParams.get('country_code')
     const marketId = url.searchParams.get('market_id')
-    const markets = MARKETS.filter(
+    const markets = marketsForProduct(product).filter(
       (mk) => (!countryCode || mk.country_code === countryCode) && (!marketId || mk.id === marketId),
     )
     const items = markets.map((mk) => {
@@ -796,7 +1028,7 @@ async function handleRequest(req, res) {
     const days = Math.min(365, Math.max(2, Number(url.searchParams.get('days') ?? 30)))
     const marketId = url.searchParams.get('market_id')
     const countryCode = url.searchParams.get('country_code')
-    const markets = MARKETS.filter(
+    const markets = marketsForProduct(product).filter(
       (mk) => (!countryCode || mk.country_code === countryCode) && (!marketId || mk.id === marketId),
     )
     if (markets.length === 0) return sendError(res, 404, 'market_not_found', '找不到此市場')
@@ -828,7 +1060,7 @@ async function handleRequest(req, res) {
   if (m) {
     const product = resolveProduct(decodeURIComponent(m[1]))
     if (!product) return sendError(res, 404, 'product_not_found', '找不到此品項')
-    sendJson(res, 200, MARKETS)
+    sendJson(res, 200, marketsForProduct(product))
     return
   }
 

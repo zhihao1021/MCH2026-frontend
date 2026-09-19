@@ -4,11 +4,13 @@ import { ApiErrorNotice } from '../components/ApiErrorNotice'
 import { Page } from '../components/Page'
 import { requestOtp } from '../api/auth'
 import { useApiAction } from '../hooks/useApi'
+import { useT } from '../i18n'
 
 const COUNTRY_CODE = 'TW'
 
 export function LoginPhonePage() {
   const navigate = useNavigate()
+  const t = useT()
   const [searchParams] = useSearchParams()
   const returnTo = searchParams.get('returnTo') ?? '/'
   const [phone, setPhone] = useState('')
@@ -28,16 +30,19 @@ export function LoginPhonePage() {
 
   return (
     <Page
-      title="登入"
+      title={t('login.title')}
       softKeys={{
-        center: { label: pending ? '傳送中…' : '取得驗證碼', onPress: () => void submit() },
-        right: { label: '返回' },
+        center: {
+          label: pending ? t('login.key.sending') : t('login.key.sendCode'),
+          onPress: () => void submit(),
+        },
+        right: { label: t('common.back') },
       }}
     >
       <div className="form">
         <div className="form__field">
           <label className="form__label" htmlFor="phone">
-            手機號碼
+            {t('login.phone')}
           </label>
           <input
             id="phone"
@@ -48,7 +53,7 @@ export function LoginPhonePage() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
           />
-          <p className="form__hint">將以簡訊發送驗證碼（目前僅支援台灣門號）</p>
+          <p className="form__hint">{t('login.phone.hint')}</p>
         </div>
         {error !== null && <ApiErrorNotice error={error} />}
       </div>

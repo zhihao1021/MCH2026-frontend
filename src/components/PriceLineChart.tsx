@@ -1,4 +1,5 @@
 import { formatCurrency } from '../api/decimal'
+import { useT } from '../i18n'
 import { MarqueeText } from './MarqueeText'
 
 export type ChartPoint = {
@@ -25,8 +26,10 @@ const PAD_Y = 6
  * 所以這裡是靜態圖（掛載時最多一次 opacity 淡入），沒有連續動畫。
  */
 export function PriceLineChart({ points, width = 200, height = 80, currency, unit, changePct }: Props) {
+  const t = useT()
+
   if (points.length === 0) {
-    return <p className="u-muted">尚無走勢資料</p>
+    return <p className="u-muted">{t('chart.none')}</p>
   }
 
   const values = points.flatMap((p) => [p.avg, p.high ?? p.avg, p.low ?? p.avg])
@@ -49,7 +52,7 @@ export function PriceLineChart({ points, width = 200, height = 80, currency, uni
 
   return (
     <div className="chart">
-      <svg className="chart__svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="歷史價格走勢圖">
+      <svg className="chart__svg" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t('chart.aria')}>
         {gridLines.map((t) => (
           <line
             key={t}

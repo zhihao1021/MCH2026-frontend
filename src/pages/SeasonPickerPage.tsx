@@ -2,15 +2,18 @@ import { useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ListView, type ListItem } from '../components/ListView'
 import { Page } from '../components/Page'
-import { SEASONS } from '../data/seasons'
+import { SEASONS, seasonLabel } from '../data/seasons'
+import { useT } from '../i18n'
 import { readJSON, writeJSON } from '../lib/storage'
 
-type WizardLast = { region?: string; season?: string }
+type WizardLast = { region?: string; country?: string; season?: string }
 
 export function SeasonPickerPage() {
   const navigate = useNavigate()
+  const t = useT()
   const [searchParams] = useSearchParams()
   const region = searchParams.get('region')
+  const country = searchParams.get('country')
   const last = readJSON<WizardLast>('wizard:last', {})
 
   useEffect(() => {
@@ -19,22 +22,23 @@ export function SeasonPickerPage() {
 
   if (region === null) return null
 
-  const items: ListItem[] = SEASONS.map((s) => ({ id: s.id, title: s.label }))
-  const initialIndex = Math.max(0, SEASONS.findIndex((s) => s.id === last.season))
+  const items: ListItem[] = SEASONS.map((season) => ({ id: season, title: seasonLabel(t, season) }))
+  const initialIndex = Math.max(0, SEASONS.findIndex((season) => season === last.season))
 
   return (
     <Page
-      title={`${region} － 選擇季節`}
+      title={t('wizard.season.title', { region })}
       flush
-      softKeys={{ center: { label: '選擇' }, right: { label: '返回' } }}
+      softKeys={{ center: { label: t('common.select') }, right: { label: t('common.back') } }}
     >
-      <p className="wizard__hint">請選擇目前季節</p>
+      <p className="wizard__hint">{t('wizard.season.hint')}</p>
       <ListView
         items={items}
         initialIndex={initialIndex}
         onSelect={(item) => {
-          writeJSON('wizard:last', { ...last, region, season: item.id })
-          navigate(`/wizard/crop?region=${encodeURIComponent(region)}&season=${item.id}`)
+          writeJSON('wizard:last', { ...last, region, country: country ?? undefined, season: item.id })
+          const countryParam = country === null ? '' : `&country=${encodeURIComponent(country)}`
+          navigate(`/wizard/crop?region=${encodeURIComponent(region)}&season=${item.id}${countryParam}`)
         }}
       />
     </Page>

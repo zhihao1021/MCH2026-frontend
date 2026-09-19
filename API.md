@@ -77,10 +77,15 @@ GET /healthz
 | 401 | `refresh_token_reused` | refresh token 重複使用（已作廢全部登入狀態） |
 | 401 | `account_disabled` | 帳號停用 |
 | 401 | `invalid_admin_token` | 管理端點 token 錯誤 |
+| 400 | `geoip_no_public_ip` | 定位：拿不到對外 IP（本機 / 內網），退回手動輸入 |
+| 404 | `geoip_not_found` | 定位：反查服務查不到這個 IP |
+| 501 | `geoip_disabled` | 定位：伺服器關閉了 IP 位置推估 |
 | 400 | `role_required` | 註冊時未指定身分。**驗證碼不會被消耗**，補上 `role` 重試即可 |
 | 403 | `role_cannot_quote` | 身分不是小農 / 盤商，不能報價 |
 | 403 | `not_quote_owner` | 試圖修改 / 下架別人的報價 |
 | 403 | `admin_disabled` | 伺服器未設定管理 token，管理端點全停用 |
+| 404 | `favorite_not_found` | 取消收藏時該品項不在收藏中 |
+| 409 | `favorite_limit_reached` | 收藏數已達上限（`details.limit`） |
 | 404 | `product_not_found` / `market_not_found` / `quote_not_found` / `user_not_found` | 資源不存在 |
 | 409 | `quote_limit_reached` | 有效報價數已達上限 |
 | 409 | `quote_not_editable` | 已下架的報價不可修改 |
@@ -182,12 +187,23 @@ image_url  https://thumb.wikimedia.org/.../330px-Cabbage_and_cross_section_on_wh
 > 授權字串太浪費頻寬。清單的縮圖請在「關於 / 圖片來源」頁面統一標示，
 > 或讓使用者點進詳情頁看。
 
-### 2.6 時間格式
+### 2.6 Demo 的國家範圍 ⚠️
+
+後端可以設定只顯示（或只隱藏）特定國家的資料。開啟後，以下端點的結果
+都會被過濾：市場、地區清單、官方行情、走勢、民間報價與資料來源。
+
+這是**伺服器端的設定，前端無法覆寫，也沒有參數可以繞過**。
+如果你看到市場或報價數量比預期少，先確認後端有沒有開這個設定。
+
+不受影響的：`/v1/geo/countries`（使用者仍要能選自己的國家）、
+註冊與所有寫入操作。資料只是不顯示，沒有被刪除。
+
+### 2.7 時間格式
 
 - 日期：`YYYY-MM-DD`（例如 `2026-09-17`）
 - 日期時間：ISO 8601，帶時區（例如 `2026-09-19T08:30:00Z` 或 `...+00:00`）
 
-### 2.7 認證
+### 2.8 認證
 
 登入成功後拿到 `access_token` 與 `refresh_token`：
 
@@ -485,7 +501,71 @@ GET /v1/me/location
 回 `LocationOut`。**本人視角一律是完整資料**，不受 `visibility` 影響——
 否則使用者沒辦法確認自己到底填了什麼。
 
-### 4.4 登記 / 更新位置 ⭐
+### 4.4 取得目前位置（「定位」按鈕）⭐
+
+```
+POST /v1/me/location/detect
+```
+
+給「取得目前位置」按鈕用。**不會存檔**，只回建議值——
+拿到後填進位置表單讓使用者確認 / 微調，再送 `PUT /v1/me/location`（4.5）。
+
+> **為什麼不用瀏覽器的 `navigator.geolocation`**
+>
+> 前端跑在 Cloud Phone 上，那是**遠端渲染**的瀏覽器：頁面在 CloudMosa 的
+> 機房執行，只把畫面串流到手機。官方文件把 Geolocation 明列為不支援
+> （*"Cloud Phone does not offer access to device hardware for local
+> connectivity or positioning"*），就算能呼叫，拿到的也會是機房座標。
+>
+> 官方建議的替代做法就是 IP 反查，而使用者的**真實 IP 會放在
+> `X-Forwarded-For`**（連線本身的 remote address 是 CloudMosa 機房）。
+> 這支端點就是這樣做的。
+
+**回應**（`LocationSuggestionOut`）：
+
+```json
+{
+  "country_code": "TW",
+  "country_name": "臺灣",
+  "subdivision_code": "TW-TPE",
+  "subdivision_name": "臺北市",
+  "locality": "Taipei",
+  "latitude": 25.053,
+  "longitude": 121.5259,
+  "timezone": "Asia/Taipei",
+  "provider": "ip_api",
+  "method": "ip",
+  "notice": "這是依照連線 IP 推估的大概位置，可能有數十公里誤差，請確認後再儲存。"
+}
+```
+
+| 欄位 | 說明 |
+| --- | --- |
+| `subdivision_code` | 對得到我們收錄的 ISO 3166-2 時才有值，可直接送進 `PUT /v1/me/location` |
+| `subdivision_name` | 已依 `locale` 在地化（臺北市 / Taipei） |
+| `locality` | 城市名，來源給什麼就是什麼，多半是英文 |
+| `provider` | 反查來源，例如 `ip_api` |
+| `method` | 目前恆為 `ip` |
+| `notice` | **請直接顯示給使用者**，避免誤以為是 GPS 定位 |
+
+除了 `provider` / `method` / `notice`，其餘欄位都可能是 `null`。
+
+**精度警告**：IP 反查是城市級的，誤差常達數十公里；行動網路上更常直接
+指到電信商的出口機房。所以這支只能當「幫你少打幾個字」，
+不能當定位用。UI 上請務必讓使用者能修改。
+
+**可能的錯誤**：
+
+| HTTP | code | 說明 |
+| --- | --- | --- |
+| 400 | `geoip_no_public_ip` | 拿不到對外 IP（本機 / 內網連線）。開發環境常見 |
+| 404 | `geoip_not_found` | 反查服務查不到這個 IP |
+| 501 | `geoip_disabled` | 伺服器設定 `GEOIP_PROVIDER=none`，功能關閉 |
+
+**這三種錯誤都不該擋住使用者** —— 一律退回「手動輸入」即可，
+位置本來就不是必填。
+
+### 4.5 登記 / 更新位置 ⭐
 
 ```
 PUT /v1/me/location
@@ -535,7 +615,7 @@ PUT /v1/me/location
 | 只傳了 `latitude` 或只傳了 `longitude` | 「必須成對提供」 |
 | `timezone` 不是有效的 IANA 時區 | 「不是有效的 IANA 時區」 |
 
-### 4.5 清除位置
+### 4.6 清除位置
 
 ```
 DELETE /v1/me/location
@@ -544,7 +624,7 @@ DELETE /v1/me/location
 清掉行政區、地址、郵遞區號與座標，**但保留 `country_code`**——
 幣別與電話格式都靠它。回應為更新後的 `user` 物件。
 
-### 4.6 位置的公開程度 ⚠️
+### 4.7 位置的公開程度 ⚠️
 
 `visibility` 決定**別人**看到多少。預設是 `region`，刻意保守。
 
@@ -557,7 +637,7 @@ DELETE /v1/me/location
 
 `private` 時 `formatted` 只會有國名。
 
-### 4.7 `formatted` 地址
+### 4.8 `formatted` 地址
 
 後端會依國家組好單行地址，前端**不要自己拼**：
 
@@ -569,7 +649,101 @@ DELETE /v1/me/location
 國名與行政區名會依請求的語系解析；`GET /v1/me` 用的是**使用者自己的 `locale`**，
 所以 zh-Hant 的使用者看自己的美國地址會是「美國」而不是 "United States"。
 
-### 4.8 我的報價
+### 4.9 收藏作物 ⭐
+
+把常看的作物釘起來，首頁一次列出「我關心的作物今天多少錢」。
+
+```
+GET    /v1/me/favorites          列出收藏（含最新價與漲跌）
+PUT    /v1/me/favorites/{ref}    加入收藏
+DELETE /v1/me/favorites/{ref}    取消收藏
+```
+
+`{ref}` 可以是品項的 **UUID 或 slug**，兩者等效（`/me/favorites/cabbage`）。
+
+#### 列出
+
+```
+GET /v1/me/favorites
+```
+
+| 參數 | 型別 | 說明 |
+| --- | --- | --- |
+| `country_code` | string | 用哪一國的市場算價格。省略則用個人檔案的國家 |
+| `locale` | string | 品項名稱語系（見 2.3） |
+
+**不分頁**——有數量上限，一次全給比較省往返。依收藏時間新到舊排序。
+
+```json
+{
+  "items": [
+    {
+      "product": {
+        "id": "a1b2c3d4-…", "slug": "cabbage", "name": "高麗菜",
+        "category": "vegetable", "default_unit": "kg",
+        "image_url": "https://thumb.wikimedia.org/…"
+      },
+      "favorited_at": "2026-09-20T02:11:43Z",
+      "latest": {
+        "trade_date": "2026-09-19",
+        "price_avg": "21.16",
+        "currency": "TWD",
+        "unit": "kg",
+        "market_name": "三重區",
+        "market_count": 12,
+        "change_pct": -22.02
+      }
+    }
+  ],
+  "total": 4,
+  "limit": 30,
+  "country_code": "TW"
+}
+```
+
+| 欄位 | 說明 |
+| --- | --- |
+| `latest` | 近 14 天內的最新官方價。**可能是 `null`**——非產季、或該國還沒接資料源 |
+| `latest.price_avg` | 跨市場聚合值，**以交易量加權**（沒有量的退回算術平均），與走勢圖同一套規則 |
+| `latest.market_count` | 這個價格聚合了幾個市場；`market_name` 是其中一個的名字 |
+| `latest.change_pct` | 相對**前一個有資料的交易日**的漲跌幅（%）。只有一天資料時是 `null` |
+| `limit` | 收藏數量上限（目前 30） |
+| `country_code` | 這次用哪一國的市場算的 |
+
+> **這支就是為了功能機設計的。** 不要對每個收藏各打一次
+> `/products/{ref}/overview`——那是 N 次往返，在 4G 的遠端渲染下很有感。
+> 要看單一品項的完整走勢與報價時再打 overview。
+
+**價格為什麼要分國家**：烏干達的使用者看到台幣報價沒有意義，
+不同幣別混在同一張清單上也無法比較。所以預設只取使用者自己國家的市場，
+查不到就回 `latest: null`，而不是硬給一個別國的價格。
+
+#### 加入
+
+```
+PUT /v1/me/favorites/{ref}
+```
+
+**冪等**：已經收藏過再打一次不會報錯，也不會變成兩筆，
+所以前端不必先查有沒有收藏過，直接 PUT 即可。
+
+回一個 `FavoriteOut`（形狀同上面 `items` 的元素），含最新價，
+所以加入後可以直接更新畫面不用重新拉清單。
+
+| HTTP | code | 說明 |
+| --- | --- | --- |
+| 404 | `product_not_found` | 沒有這個品項 |
+| 409 | `favorite_limit_reached` | 已達上限，`details.limit` 是上限值 |
+
+#### 取消
+
+```
+DELETE /v1/me/favorites/{ref}
+```
+
+成功回 **204 No Content**。沒收藏過回 404 `favorite_not_found`。
+
+### 4.10 我的報價
 
 ```
 GET /v1/me/quotes
@@ -634,6 +808,9 @@ GET /v1/users/{user_id}/quotes
 
 前端組位置表單時用的參考資料。**不要在前端寫死任何一份清單。**
 
+資料來自 ISO 3166 / CLDR / libphonenumber，涵蓋 242 個國家與 5046 個行政區，
+不是後端手工維護的名單。
+
 ### 6.1 支援的國家
 
 ```
@@ -659,10 +836,13 @@ GET /v1/geo/countries?locale=zh-Hant
 ```
 
 - `dialing_code`：登入畫面的國碼選擇器用
-- `subdivision_label`：**直接拿來當表單標籤**（台灣是「縣市」、日本是「都道府県」、美國是 "State"）
-- `has_subdivision_data`：`false` 代表這個國家還沒收錄行政區清單，
+- `subdivision_label`：**直接拿來當表單標籤**（台灣是「縣市」、日本是「都道府県」、
+  烏干達是 "Region"、美國是 "State"）
+- `has_second_level` / `subdivision_label_level2` / `subdivision_count_level2`：
+  行政區有兩層的國家才有意義，見 6.3
+- `has_subdivision_data`：`false` 代表 ISO 3166-2 沒有收錄這個國家的行政區，
   表單請改成自由輸入的 `locality` 文字框
-- 依 `name_en` 排序，可直接餵給下拉選單
+- **依請求語系的國名排序**，可直接餵給下拉選單
 
 ### 6.2 單一國家
 
@@ -685,9 +865,32 @@ GET /v1/geo/countries/{code}/subdivisions?locale=zh-Hant
 ]
 ```
 
+**Query 參數**：
+
+| 參數 | 說明 |
+| --- | --- |
+| `parent` | 只列這個一級行政區底下的下一層，例如 `parent=UG-E` |
+| `level` | `1` = 一級（預設）；`2` = 全國的第二層 |
+
+**回應欄位**：`code` / `name` / `name_en` / `type`（ISO 類型，如 County、District）/
+`level`（1 或 2）/ `parent_code` / `has_children`。
+
 - 代碼是 **ISO 3166-2**，可直接送給 `PUT /v1/me/location` 的 `subdivision_code`
-- 目前收錄台灣（22 筆）與日本（47 筆）
-- **回空陣列不是錯誤**，代表該國尚未收錄，請改用 `locality` 自由輸入
+- **一級或二級都可以填**。有些國家的一級太粗，例如烏干達的一級是 4 個 Region、
+  實際要用的是底下 135 個 District：
+
+  ```
+  GET /v1/geo/countries/UG/subdivisions
+  → [{"code":"UG-E","name":"Eastern","type":"Region","level":1,"has_children":true}, ...]
+
+  GET /v1/geo/countries/UG/subdivisions?parent=UG-E
+  → [{"code":"UG-203","name":"Iganga","type":"District","level":2,"parent_code":"UG-E"}, ...]
+  ```
+
+  `CountryOut.has_second_level` 為 `true` 時才需要顯示第二個下拉選單，
+  標籤用 `subdivision_label_level2`。
+- ISO 只提供羅馬字名稱；台灣與日本的行政區有補上中日文，其餘顯示羅馬字
+- **回空陣列不是錯誤**，代表 ISO 沒有收錄該國（多是小島），請改用 `locality` 自由輸入
 
 ---
 
@@ -707,10 +910,40 @@ GET /v1/products
 | --- | --- | --- |
 | `q` | string | 關鍵字，比對**所有語系**的名稱與別名（例如 `q=高麗菜`、`q=甘藍`、`q=cabbage` 都能找到同一個品項） |
 | `category` | string | 分類：`vegetable` / `fruit` / `flower` / `grain` / `livestock` / `fishery` / `other` |
+| `region` | string | **只回在該地區有官方行情的作物**。可用的值見 7.9 |
+| `country_code` | string | **只回在該國有官方行情的作物**（ISO 3166-1 alpha-2） |
+| `market_id` | UUID | **只回該市場有官方行情的作物** |
 | `locale` | string | 回應名稱的語系（見 2.3） |
 | `limit` / `offset` | int | 分頁（見 2.2） |
 
 排序：`popularity` 高的在前。
+
+#### 依產地過濾 ⭐
+
+`region` / `country_code` / `market_id` 會把結果限縮成
+**「在該地確實有官方行情的作物」**——完全沒有資料的品項直接不回傳，
+不會出現點進去一片空白的品項。
+
+```
+GET /v1/products?country_code=UG          → 23 項（烏干達有行情的）
+GET /v1/products?region=Iganga            → 23 項
+GET /v1/products?region=台中市&locale=zh-Hant → 129 項
+GET /v1/products?country_code=UG&q=bean   → 2 項（Common Bean、Soybean）
+GET /v1/products?country_code=UG&category=fruit → 5 項
+```
+
+三個條件**互相交集**，也可以跟 `q` / `category` 一起用。
+
+兩個要注意的地方：
+
+1. **地區名稱可能跨國撞名**（所以 `/markets/regions` 才會一併回國碼）。
+   只給 `region` 會跨國比對，要精確請同時帶 `country_code`。
+2. **「有市場」不等於「有資料」。** 市場可能已經建立但還沒抓到任何行情，
+   這時該地區會回 0 項。例如烏干達目前 9 個市場裡只有 Iganga 有資料，
+   所以 `region=Mbale` 是空的——這是符合預期的行為，不是 bug。
+
+判斷依據是「**有沒有任何一筆官方行情**」，不限時間。
+如果需要「近 N 天內有行情」才算，要另外加參數（目前沒有）。
 
 **回應**：`Page<ProductOut>`
 
@@ -964,28 +1197,36 @@ GET /v1/markets/{market_id}
 GET /v1/markets/regions
 ```
 
-有市場資料的縣市與各自的市場數，給前端做「選地區」的下拉選單。
+有市場資料的地區與各自的市場數，給前端做「選地區」的下拉選單。
 不分頁，直接回陣列。
 
-**Query 參數**：`country_code`（選填）
+**Query 參數**：`country_code`（選填。不給就回**所有國家**的地區）
 
 ```json
 [
-  { "region": "台中市", "market_count": 4 },
-  { "region": "台北市", "market_count": 4 },
-  { "region": "彰化縣", "market_count": 2 },
-  { "region": "雲林縣", "market_count": 1 }
+  { "region": "台中市",  "country_code": "TW", "market_count": 4 },
+  { "region": "台北市",  "country_code": "TW", "market_count": 4 },
+  { "region": "彰化縣",  "country_code": "TW", "market_count": 2 },
+  { "region": "Iganga", "country_code": "UG", "market_count": 1 },
+  { "region": "Kampala","country_code": "UG", "market_count": 1 }
 ]
 ```
 
-依市場數由多到少排序。拿到的 `region` 可以直接丟給 `GET /v1/markets?region=…`。
+**排序是「先國家、再市場數由多到少」**，同一國的地區會排在一起。
+
+每一筆都帶 `country_code`：不同國家可能有同名的地區，而且前端要能依國家
+分組顯示。要單看一國就帶 `country_code=UG`。
+
+拿到的 `region` 可以直接丟給 `GET /v1/markets?region=…`
+（跨國同名時請一併帶 `country_code`）。
 
 > 台灣的縣市名稱用 `台` 不用 `臺`（與農業部回傳的市場名稱一致），
 > 前端做比對時請注意。
 >
-> 這個 `region` 是**市場所在的縣市字串**，與使用者個人檔案的
-> `subdivision_code`（ISO 3166-2，例如 `TW-YUN`）是兩回事：
-> 前者來自官方資料來源的原始欄位，後者是平台自己的標準化代碼。
+> 這個 `region` 是**市場所在地區的名稱字串**，內容由各資料來源決定：
+> 台灣是縣市（台中市）、烏干達是 district（Iganga、Kampala）。
+> 它與使用者個人檔案的 `subdivision_code`（ISO 3166-2，例如 `TW-YUN`）
+> 是兩回事——後者是平台自己的標準化代碼，前者是市場清單的顯示與篩選用字串。
 
 ---
 
@@ -1298,6 +1539,13 @@ GET /v1/sources/{key}
     詳情頁在圖片下放一行「圖片：{source} / {author}（{license}）」即可，
     能連到 `source_url` 更好。清單的縮圖可統一在「關於」頁標示。
     這不是建議，是授權條件（見 2.5）。
-13. **用 `user.can_quote` 控制報價入口**：不要自己判斷 `role`，
+13. **收藏清單用 `/me/favorites` 一次拿**：它已經附上每個作物的最新價與漲跌，
+    不要對每個收藏各打一次 `/overview`。加入收藏是冪等的 PUT，
+    前端不必先查狀態；`latest` 為 `null` 時顯示「暫無行情」即可。
+14. **定位按鈕不要用 `navigator.geolocation`**：Cloud Phone 不支援，
+    會拿到機房座標。改打 `POST /v1/me/location/detect`（4.4），
+    把回來的值填進表單讓使用者確認，並把 `notice` 顯示出來。
+    三種錯誤（`geoip_*`）都只要退回手動輸入，不要擋住流程。
+15. **用 `user.can_quote` 控制報價入口**：不要自己判斷 `role`，
     後端已經算好。身分註冊後不能改，所以這個值在整個 session 內是穩定的，
     可以安心快取。選錯身分的使用者請導向客服，不要在 App 裡提供切換。

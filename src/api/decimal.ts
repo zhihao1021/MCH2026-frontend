@@ -3,6 +3,8 @@
  * 固定。比較或計算前一律先 parse 成 number，絕不字串比較（見 API.md 2.4）。
  */
 
+import { intlLocale } from '../i18n/locale'
+
 export function parseDecimal(value: string): number {
   const n = Number(value)
   return Number.isFinite(n) ? n : 0
@@ -17,7 +19,7 @@ export function parseDecimalOrNull(value: string | null | undefined): number | n
 export function formatCurrency(amount: string | number, currency: string): string {
   const n = typeof amount === 'string' ? parseDecimal(amount) : amount
   try {
-    return new Intl.NumberFormat('zh-Hant', {
+    return new Intl.NumberFormat(intlLocale(), {
       style: 'currency',
       currency,
       maximumFractionDigits: 2,

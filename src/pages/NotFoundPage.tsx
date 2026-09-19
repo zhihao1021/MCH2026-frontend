@@ -1,18 +1,20 @@
-import { Page } from '../components/Page'
 import { useNavigate } from 'react-router-dom'
+import { Page } from '../components/Page'
+import { useT } from '../i18n'
 
 export function NotFoundPage() {
   const navigate = useNavigate()
+  const t = useT()
 
   return (
     <Page
-      title="找不到頁面"
+      title={t('notFound.title')}
       softKeys={{
-        center: { label: '回首頁', onPress: () => navigate('/', { replace: true }) },
-        right: { label: '返回' },
+        center: { label: t('common.home'), onPress: () => navigate('/', { replace: true }) },
+        right: { label: t('common.back') },
       }}
     >
-      <p className="u-muted">這個路徑不存在。</p>
+      <p className="u-muted">{t('notFound.body')}</p>
     </Page>
   )
 }

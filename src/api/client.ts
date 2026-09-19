@@ -2,6 +2,7 @@ import type { ApiErrorBody } from './types'
 // 這裡跟 auth.ts 互相 import（auth.ts 的 otp/refresh/logout 呼叫也要用 apiFetch）。
 // 兩邊都只在函式內使用對方的匯出，不在模組頂層立即呼叫，ESM 的循環匯入可以安全處理。
 import { clearTokens, getAccessToken, refreshTokens } from './auth'
+import { getLocale } from '../i18n/locale'
 
 const BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000'
 
@@ -60,6 +61,8 @@ export async function apiFetch<T>(
   const { auth = false, headers, ...rest } = init ?? {}
   const baseHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
+    // 品項名稱的語系由後端解析（API.md 2.3）：帶標頭就不必每支 API 都塞 ?locale=
+    'Accept-Language': getLocale(),
     ...(headers as Record<string, string> | undefined),
   }
 

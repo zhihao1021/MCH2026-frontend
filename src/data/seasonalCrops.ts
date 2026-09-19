@@ -78,8 +78,6 @@ const SEASONAL_CROPS: Record<string, string[]> = {
   '台東縣:winter': ['sugar-apple', 'papaya', 'cabbage', 'white-radish', 'mandarin'],
 }
 
-const FALLBACK_LIMIT = 10
-
 /**
  * 地區以後端回傳的字串為準，這裡只是查表；找不到（例如後端新增了這裡還沒維護的地區）
  * 回傳 null，呼叫端退回 listProducts。比對前先正規化「臺／台」。
@@ -87,5 +85,3 @@ const FALLBACK_LIMIT = 10
 export function getSeasonalCropSlugs(region: string, season: Season): string[] | null {
   return SEASONAL_CROPS[`${normalizeRegion(region)}:${season}`] ?? null
 }
-
-export const SEASONAL_CROPS_FALLBACK_LIMIT = FALLBACK_LIMIT

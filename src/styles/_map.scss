@@ -1,0 +1,123 @@
+@use 'mixins' as *;
+
+/// 小地圖：圖磚底圖 + 自己畫的標記層。
+/// 圖磚是亮色的，所以標記的描邊固定用白色，深色模式也不改——
+/// 描邊是壓在圖磚上、不是壓在頁面背景上。
+.minimap {
+  position: relative;
+  overflow: hidden;
+  margin: 0 auto;
+  border: 1px solid var(--c-line);
+  border-radius: 4px;
+  // 圖磚還沒到位時先鋪一層底色，避免遠端渲染下閃出一塊白
+  background: var(--c-accent-soft);
+
+  &--schematic {
+    background: var(--c-bg);
+  }
+
+  &__tiles {
+    position: absolute;
+    inset: 0;
+  }
+
+  &__tile {
+    position: absolute;
+    display: block;
+    // 寬高由元件以 px 指定（圖磚一律 256）
+    image-rendering: auto;
+  }
+
+  &__overlay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  &__link {
+    stroke: var(--c-accent);
+    stroke-width: 2;
+    stroke-dasharray: 4 3;
+    vector-effect: non-scaling-stroke;
+  }
+
+  // 實際路線：實線，跟「還沒算出路線」的虛線分得出來
+  &__route {
+    stroke: var(--c-accent);
+    stroke-width: 2.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__route-halo {
+    stroke: #fff;
+    stroke-width: 4.5;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__halo,
+  &__halo-shape {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 3;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__me {
+    fill: var(--c-header-bg);
+  }
+
+  &__them {
+    fill: var(--c-accent);
+  }
+
+  &__ring {
+    fill: none;
+    stroke: var(--c-line);
+    stroke-width: 1;
+    stroke-dasharray: 2 3;
+    vector-effect: non-scaling-stroke;
+  }
+
+  &__north {
+    fill: var(--c-muted);
+    font-size: 9px;
+    dominant-baseline: hanging;
+  }
+
+  &__credit {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    padding: 0 3px;
+    font-size: var(--fs-footnote);
+    color: var(--c-muted);
+    background: var(--c-bg);
+    border-top-left-radius: 4px;
+
+    @include qqvga {
+      // 128px 寬的螢幕上這行字會吃掉四分之一的地圖，縮到剩下可辨識即可
+      font-size: 7px;
+    }
+  }
+}
+
+/// 地圖頁：地圖置中，下面兩行摘要
+.user-map {
+  &__summary {
+    margin: 6px 0 0;
+    text-align: center;
+    font-size: var(--fs-headline);
+    font-weight: var(--fw-headline);
+    color: var(--c-accent);
+  }
+
+  &__caption {
+    margin: 2px 0 0;
+    text-align: center;
+  }
+}

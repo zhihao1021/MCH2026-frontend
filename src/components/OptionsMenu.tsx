@@ -1,5 +1,6 @@
 import { useCallback, useState, type ReactNode } from 'react'
 import { useListNav } from '../hooks/useListNav'
+import { useT } from '../i18n'
 import { useSoftKeys } from '../hooks/useSoftKeys'
 import { MarqueeText } from './MarqueeText'
 
@@ -40,6 +41,7 @@ function OptionsMenu({
   items: OptionItem[]
   onClose: () => void
 }) {
+  const t = useT()
   const { itemProps } = useListNav({
     count: items.length,
     onSelect: (i) => {
@@ -52,9 +54,9 @@ function OptionsMenu({
 
   // 選單開啟期間覆寫軟鍵（堆疊最上層），關閉後自動還原頁面原本的設定
   useSoftKeys({
-    left: { label: '關閉', onPress: onClose },
-    center: { label: '選擇' },
-    right: { label: '取消', onPress: onClose },
+    left: { label: t('common.close'), onPress: onClose },
+    center: { label: t('common.select') },
+    right: { label: t('common.cancel'), onPress: onClose },
   })
 
   return (
