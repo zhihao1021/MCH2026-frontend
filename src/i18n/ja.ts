@@ -30,7 +30,7 @@ export const ja: Messages = {
 
   // ---- ホーム ----
   'home.wizard.title': '地域から作物を探す',
-  'home.wizard.subtitle': '地域と季節を選んで相場をすぐ確認',
+  'home.wizard.subtitle': '地域と分類を選んで相場をすぐ確認',
   'home.products.title': 'すべての作物を見る',
   'home.products.subtitle': '絞り込みなしの一覧',
   'home.favorites.title': 'お気に入り',
@@ -43,22 +43,18 @@ export const ja: Messages = {
   'home.menu.settings': '設定',
   'home.menu.about': 'このアプリについて',
 
-  // ---- 地域 / 季節 / 作物ウィザード ----
+  // ---- 地域 / 分類 / 作物ウィザード ----
   'wizard.region.title': '地域を選択',
   'wizard.region.hint': 'お住まいの地域、または調べたい地域を選んでください',
   'wizard.region.empty': '地域データがありません',
   'wizard.region.markets.one': '{count} 市場',
   'wizard.region.markets.other': '{count} 市場',
-  'wizard.season.title': '{region} － 季節を選択',
-  'wizard.season.hint': '現在の季節を選んでください',
-  'wizard.crop.title': '{region}・{season}',
+  'wizard.category.title': '{region} － 分類を選択',
+  'wizard.category.hint': '作物の分類を選んでください',
+  'wizard.crop.title': '{region}・{category}',
   'wizard.crop.loading': '作物一覧を読み込み中',
   'wizard.crop.emptyRegion': 'この地域にはまだ相場や出品がありません',
-  'wizard.crop.emptySeason': 'この季節に該当する作物はありません',
-  'seasons.spring': '春',
-  'seasons.summer': '夏',
-  'seasons.autumn': '秋',
-  'seasons.winter': '冬',
+  'wizard.crop.emptyCategory': 'この分類に該当する作物はありません',
 
   // ---- 作物一覧 ----
   'products.title': 'すべての作物',

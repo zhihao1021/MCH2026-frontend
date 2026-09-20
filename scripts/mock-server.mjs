@@ -13,27 +13,29 @@ const ACCESS_TTL_SECONDS = 43199
 
 // 對齊目前實際後端（見 .env.development 指向的服務）GET /v1/products 的
 // 種子資料，讓 mock server 與真後端可以互換測試，不必改前端任何一行程式碼。
+// names 涵蓋前端目前支援的 5 個語系（見 src/i18n/locale.ts 的 LOCALES）；
+// 找不到對應語系時 toProductOut() 才會退回 en → zh-Hant → 任一語系。
 const PRODUCTS = [
-  { id: 'prod-cabbage', slug: 'cabbage', names: { 'zh-Hant': '高麗菜' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 100 },
-  { id: 'prod-egg', slug: 'egg', names: { 'zh-Hant': '雞蛋' }, category: 'livestock', default_unit: 'kg', image_url: null, popularity: 95 },
-  { id: 'prod-tomato', slug: 'tomato', names: { 'zh-Hant': '番茄' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 93 },
-  { id: 'prod-rice', slug: 'rice', names: { 'zh-Hant': '白米' }, category: 'grain', default_unit: 'kg', image_url: null, popularity: 99 },
-  { id: 'prod-banana', slug: 'banana', names: { 'zh-Hant': '香蕉' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 90 },
-  { id: 'prod-green-onion', slug: 'green-onion', names: { 'zh-Hant': '青蔥' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 70 },
-  { id: 'prod-onion', slug: 'onion', names: { 'zh-Hant': '洋蔥' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 72 },
-  { id: 'prod-pineapple', slug: 'pineapple', names: { 'zh-Hant': '鳳梨' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 80 },
-  { id: 'prod-napa-cabbage', slug: 'napa-cabbage', names: { 'zh-Hant': '大白菜' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 76 },
-  { id: 'prod-mango', slug: 'mango', names: { 'zh-Hant': '芒果' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 88 },
-  { id: 'prod-potato', slug: 'potato', names: { 'zh-Hant': '馬鈴薯' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 74 },
-  { id: 'prod-apple', slug: 'apple', names: { 'zh-Hant': '蘋果' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 82 },
-  { id: 'prod-white-radish', slug: 'white-radish', names: { 'zh-Hant': '白蘿蔔' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 68 },
-  { id: 'prod-carrot', slug: 'carrot', names: { 'zh-Hant': '紅蘿蔔' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 66 },
-  { id: 'prod-watermelon', slug: 'watermelon', names: { 'zh-Hant': '西瓜' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 85 },
-  { id: 'prod-guava', slug: 'guava', names: { 'zh-Hant': '芭樂' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 62 },
-  { id: 'prod-cucumber', slug: 'cucumber', names: { 'zh-Hant': '小黃瓜' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 64 },
-  { id: 'prod-spinach', slug: 'spinach', names: { 'zh-Hant': '菠菜' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 60 },
-  { id: 'prod-wax-apple', slug: 'wax-apple', names: { 'zh-Hant': '蓮霧' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 58 },
-  { id: 'prod-papaya', slug: 'papaya', names: { 'zh-Hant': '木瓜' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 78 },
+  { id: 'prod-cabbage', slug: 'cabbage', names: { 'zh-Hant': '高麗菜', 'zh-Hans': '卷心菜', en: 'Cabbage', ja: 'キャベツ', th: 'กะหล่ำปลี' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 100 },
+  { id: 'prod-egg', slug: 'egg', names: { 'zh-Hant': '雞蛋', 'zh-Hans': '鸡蛋', en: 'Egg', ja: '卵', th: 'ไข่ไก่' }, category: 'livestock', default_unit: 'kg', image_url: null, popularity: 95 },
+  { id: 'prod-tomato', slug: 'tomato', names: { 'zh-Hant': '番茄', 'zh-Hans': '番茄', en: 'Tomato', ja: 'トマト', th: 'มะเขือเทศ' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 93 },
+  { id: 'prod-rice', slug: 'rice', names: { 'zh-Hant': '白米', 'zh-Hans': '大米', en: 'Rice', ja: '米', th: 'ข้าวสาร' }, category: 'grain', default_unit: 'kg', image_url: null, popularity: 99 },
+  { id: 'prod-banana', slug: 'banana', names: { 'zh-Hant': '香蕉', 'zh-Hans': '香蕉', en: 'Banana', ja: 'バナナ', th: 'กล้วย' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 90 },
+  { id: 'prod-green-onion', slug: 'green-onion', names: { 'zh-Hant': '青蔥', 'zh-Hans': '小葱', en: 'Green Onion', ja: '青ねぎ', th: 'ต้นหอม' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 70 },
+  { id: 'prod-onion', slug: 'onion', names: { 'zh-Hant': '洋蔥', 'zh-Hans': '洋葱', en: 'Onion', ja: '玉ねぎ', th: 'หัวหอมใหญ่' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 72 },
+  { id: 'prod-pineapple', slug: 'pineapple', names: { 'zh-Hant': '鳳梨', 'zh-Hans': '菠萝', en: 'Pineapple', ja: 'パイナップル', th: 'สับปะรด' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 80 },
+  { id: 'prod-napa-cabbage', slug: 'napa-cabbage', names: { 'zh-Hant': '大白菜', 'zh-Hans': '大白菜', en: 'Napa Cabbage', ja: '白菜', th: 'ผักกาดขาว' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 76 },
+  { id: 'prod-mango', slug: 'mango', names: { 'zh-Hant': '芒果', 'zh-Hans': '芒果', en: 'Mango', ja: 'マンゴー', th: 'มะม่วง' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 88 },
+  { id: 'prod-potato', slug: 'potato', names: { 'zh-Hant': '馬鈴薯', 'zh-Hans': '土豆', en: 'Potato', ja: 'じゃがいも', th: 'มันฝรั่ง' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 74 },
+  { id: 'prod-apple', slug: 'apple', names: { 'zh-Hant': '蘋果', 'zh-Hans': '苹果', en: 'Apple', ja: 'りんご', th: 'แอปเปิล' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 82 },
+  { id: 'prod-white-radish', slug: 'white-radish', names: { 'zh-Hant': '白蘿蔔', 'zh-Hans': '白萝卜', en: 'White Radish', ja: '大根', th: 'หัวไชเท้า' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 68 },
+  { id: 'prod-carrot', slug: 'carrot', names: { 'zh-Hant': '紅蘿蔔', 'zh-Hans': '胡萝卜', en: 'Carrot', ja: 'にんじん', th: 'แครอท' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 66 },
+  { id: 'prod-watermelon', slug: 'watermelon', names: { 'zh-Hant': '西瓜', 'zh-Hans': '西瓜', en: 'Watermelon', ja: 'スイカ', th: 'แตงโม' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 85 },
+  { id: 'prod-guava', slug: 'guava', names: { 'zh-Hant': '芭樂', 'zh-Hans': '番石榴', en: 'Guava', ja: 'グアバ', th: 'ฝรั่ง' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 62 },
+  { id: 'prod-cucumber', slug: 'cucumber', names: { 'zh-Hant': '小黃瓜', 'zh-Hans': '黄瓜', en: 'Cucumber', ja: 'きゅうり', th: 'แตงกวา' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 64 },
+  { id: 'prod-spinach', slug: 'spinach', names: { 'zh-Hant': '菠菜', 'zh-Hans': '菠菜', en: 'Spinach', ja: 'ほうれん草', th: 'ผักโขม' }, category: 'vegetable', default_unit: 'kg', image_url: null, popularity: 60 },
+  { id: 'prod-wax-apple', slug: 'wax-apple', names: { 'zh-Hant': '蓮霧', 'zh-Hans': '莲雾', en: 'Wax Apple', ja: 'レンブ', th: 'ชมพู่' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 58 },
+  { id: 'prod-papaya', slug: 'papaya', names: { 'zh-Hant': '木瓜', 'zh-Hans': '木瓜', en: 'Papaya', ja: 'パパイヤ', th: 'มะละกอ' }, category: 'fruit', default_unit: 'kg', image_url: null, popularity: 78 },
 ]
 
 const MARKETS = [
@@ -398,7 +400,8 @@ function resolveProduct(ref) {
 }
 
 function toProductOut(product, locale) {
-  const name = product.names[locale] ?? product.names['zh-Hant'] ?? Object.values(product.names)[0]
+  // 找不到指定語系時退回 en，再退回任一語系（API.md 2.3）
+  const name = product.names[locale] ?? product.names.en ?? Object.values(product.names)[0]
   return {
     id: product.id,
     slug: product.slug,
@@ -668,6 +671,26 @@ function paginate(items, url) {
   return { items: page, total: items.length, limit, offset, has_more: offset + page.length < items.length }
 }
 
+const KNOWN_LOCALES = ['zh-Hant', 'zh-Hans', 'en', 'ja', 'th']
+
+/**
+ * 語系解析優先序（API.md 2.3）：`?locale=` > `Accept-Language`（取第一個值）> 預設。
+ * 前端大多數呼叫都不帶 `?locale=`，改用 Accept-Language 標頭（見 src/api/client.ts），
+ * 之前這裡只看 query string，導致切換介面語言後作物名稱仍然是 zh-Hant。
+ */
+function resolveLocale(url, req) {
+  const fromQuery = url.searchParams.get('locale')
+  if (fromQuery !== null && KNOWN_LOCALES.includes(fromQuery)) return fromQuery
+
+  const header = req.headers['accept-language']
+  if (typeof header === 'string') {
+    const primary = header.split(',')[0]?.split(';')[0]?.trim()
+    if (primary !== undefined && KNOWN_LOCALES.includes(primary)) return primary
+  }
+
+  return 'zh-Hant'
+}
+
 const server = createServer((req, res) => {
   void handleRequest(req, res)
 })
@@ -675,7 +698,7 @@ const server = createServer((req, res) => {
 async function handleRequest(req, res) {
   const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`)
   const path = url.pathname
-  const locale = url.searchParams.get('locale') ?? 'zh-Hant'
+  const locale = resolveLocale(url, req)
 
   // ---- 登入 / 使用者 ----
 

@@ -6,11 +6,10 @@ import { Page } from '../components/Page'
 import { PagedListView } from '../components/PagedListView'
 import { listProducts } from '../api/products'
 import { listQuotes } from '../api/quotes'
-import type { ProductOut, QuoteOut } from '../api/types'
-import { getSeasonalCropSlugs } from '../data/seasonalCrops'
-import { isSeason, seasonLabel } from '../data/seasons'
+import { isProductCategory, type ProductOut, type QuoteOut } from '../api/types'
 import { useApi } from '../hooks/useApi'
 import { useT } from '../i18n'
+import { categoryLabel } from '../lib/labels'
 import { PAGE_SIZE, pageCountOf } from '../lib/paging'
 
 /** 一次抓齊該地區有資料的品項：後端上限 200，目前最大的地區也只有 130 項左右。 */
@@ -41,20 +40,20 @@ async function loadRegionCrops(region: string, countryCode: string | null): Prom
 }
 
 /**
- * 某地區某一季的作物。清單一律先限縮到「這個地區有的作物」，
- * 再用靜態季節表篩一次；靜態表沒收錄這個地區時就全列（仍然只有該地區有的）。
+ * 某地區某個分類的作物。清單一律先限縮到「這個地區有的作物」，
+ * 再用後端回傳的 `category` 欄位篩一次——分類本身就是後端的資料，不用再自己維護對照表。
  */
 export function CropPickerPage() {
   const navigate = useNavigate()
   const t = useT()
   const [searchParams] = useSearchParams()
   const region = searchParams.get('region')
-  const season = searchParams.get('season')
+  const category = searchParams.get('category')
   // 地區名稱可能跨國撞名，地區清單本來就會回國碼，一路帶過來比對才準（API.md 7.9）
   const country = searchParams.get('country')
 
-  // 換地區／季節時頁碼要歸零；同一個路由元件不會重掛，所以把來源一起記在 state 裡
-  const sourceKey = `${region}:${country}:${season}`
+  // 換地區／分類時頁碼要歸零；同一個路由元件不會重掛，所以把來源一起記在 state 裡
+  const sourceKey = `${region}:${country}:${category}`
   const [pageState, setPageState] = useState({ key: sourceKey, index: 0 })
   const pageIndex = pageState.key === sourceKey ? pageState.index : 0
   const setPageIndex = (index: number) => setPageState({ key: sourceKey, index })
@@ -65,15 +64,13 @@ export function CropPickerPage() {
   )
 
   useEffect(() => {
-    if (region === null || season === null) navigate('/wizard/region', { replace: true })
-  }, [region, season, navigate])
+    if (region === null || category === null) navigate('/wizard/region', { replace: true })
+  }, [region, category, navigate])
 
-  if (region === null || season === null) return null
+  if (region === null || category === null) return null
 
   const available = data ?? []
-  // 靜態表查不到這個地區（例如後端新增了還沒維護的地區）就不做季節篩選
-  const slugs = isSeason(season) ? getSeasonalCropSlugs(region, season) : null
-  const crops = slugs === null ? available : available.filter((p) => slugs.includes(p.slug))
+  const crops = isProductCategory(category) ? available.filter((p) => p.category === category) : available
 
   const pageCount = pageCountOf(crops.length)
   const page = Math.min(pageIndex, pageCount - 1)
@@ -87,13 +84,13 @@ export function CropPickerPage() {
     ? t('common.loading')
     : available.length === 0
       ? t('wizard.crop.emptyRegion')
-      : t('wizard.crop.emptySeason')
+      : t('wizard.crop.emptyCategory')
 
   return (
     <Page
       title={t('wizard.crop.title', {
         region,
-        season: seasonLabel(t, isSeason(season) ? season : 'spring'),
+        category: isProductCategory(category) ? categoryLabel(t, category) : category,
       })}
       flush
       softKeys={{ center: { label: t('common.select') }, right: { label: t('common.back') } }}

@@ -1,11 +1,22 @@
+@use 'mixins' as *;
+
 .range-bar {
   padding: 4px 0;
 
   &__labels {
     display: flex;
     justify-content: space-between;
+    gap: 4px;
     font-size: var(--fs-footnote);
     color: var(--c-muted);
+
+    // flex item 預設 min-width:auto 會擋住 text-overflow: ellipsis 生效（同 .product-detail__markets）：
+    // 金額字串在 QQVGA 上很容易比半個螢幕還寬，兩端數字沒地方縮就會被 overflow-x:hidden 整個切掉、
+    // 不會有省略號，使用者連「數字被截斷」都看不出來
+    span {
+      min-width: 0;
+      @include truncate;
+    }
   }
 
   &__track {

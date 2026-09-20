@@ -1,5 +1,6 @@
 import { createHashRouter } from 'react-router-dom'
 import { AboutPage } from './pages/AboutPage'
+import { CategoryPickerPage } from './pages/CategoryPickerPage'
 import { CropPickerPage } from './pages/CropPickerPage'
 import { FavoritesPage } from './pages/FavoritesPage'
 import { HomePage } from './pages/HomePage'
@@ -17,7 +18,6 @@ import { ProductListPage } from './pages/ProductListPage'
 import { ProfilePage } from './pages/ProfilePage'
 import { QuoteFormPage } from './pages/QuoteFormPage'
 import { RegionPickerPage } from './pages/RegionPickerPage'
-import { SeasonPickerPage } from './pages/SeasonPickerPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { UserProfilePage } from './pages/UserProfilePage'
 
@@ -32,7 +32,7 @@ import { UserProfilePage } from './pages/UserProfilePage'
 export const router = createHashRouter([
   { path: '/', element: <HomePage /> },
   { path: '/wizard/region', element: <RegionPickerPage /> },
-  { path: '/wizard/season', element: <SeasonPickerPage /> },
+  { path: '/wizard/category', element: <CategoryPickerPage /> },
   { path: '/wizard/crop', element: <CropPickerPage /> },
   { path: '/products', element: <ProductListPage /> },
   { path: '/products/:ref', element: <ProductDetailPage /> },

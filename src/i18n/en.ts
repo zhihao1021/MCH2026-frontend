@@ -33,7 +33,7 @@ export const en = {
 
   // ---- 首頁 ----
   'home.wizard.title': 'Crops by region',
-  'home.wizard.subtitle': 'Pick a region and season to find prices fast',
+  'home.wizard.subtitle': 'Pick a region and category to find prices fast',
   'home.products.title': 'Browse all crops',
   'home.products.subtitle': 'The full catalogue, no filters',
   'home.favorites.title': 'My favorites',
@@ -46,22 +46,18 @@ export const en = {
   'home.menu.settings': 'Settings',
   'home.menu.about': 'About',
 
-  // ---- 地區 / 季節 / 作物精靈 ----
+  // ---- 地區 / 分類 / 作物精靈 ----
   'wizard.region.title': 'Choose region',
   'wizard.region.hint': 'Pick where you are, or where you want to look',
   'wizard.region.empty': 'No regions available',
   'wizard.region.markets.one': '{count} market',
   'wizard.region.markets.other': '{count} markets',
-  'wizard.season.title': '{region} — choose season',
-  'wizard.season.hint': 'Pick the current season',
-  'wizard.crop.title': '{region} · {season}',
+  'wizard.category.title': '{region} — choose category',
+  'wizard.category.hint': 'Pick a crop category',
+  'wizard.crop.title': '{region} · {category}',
   'wizard.crop.loading': 'Loading crops',
   'wizard.crop.emptyRegion': 'No prices or quotes in this region yet',
-  'wizard.crop.emptySeason': 'No crops match this season',
-  'seasons.spring': 'Spring',
-  'seasons.summer': 'Summer',
-  'seasons.autumn': 'Autumn',
-  'seasons.winter': 'Winter',
+  'wizard.crop.emptyCategory': 'No crops match this category',
 
   // ---- 所有作物 ----
   'products.title': 'All crops',

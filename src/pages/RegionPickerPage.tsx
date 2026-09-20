@@ -9,7 +9,7 @@ import { useT } from '../i18n'
 import { sameRegion } from '../lib/region'
 import { readJSON, writeJSON } from '../lib/storage'
 
-type WizardLast = { region?: string; country?: string; season?: string }
+type WizardLast = { region?: string; country?: string; category?: string }
 
 /** 地區清單完全以後端 GET /v1/markets/regions 回傳的為準（含順序），前端不加國家篩選、不寫死。 */
 export function RegionPickerPage() {
@@ -50,7 +50,7 @@ export function RegionPickerPage() {
           if (picked === undefined) return
           writeJSON('wizard:last', { ...last, region: picked.region, country: picked.country_code })
           navigate(
-            `/wizard/season?region=${encodeURIComponent(picked.region)}&country=${encodeURIComponent(picked.country_code)}`,
+            `/wizard/category?region=${encodeURIComponent(picked.region)}&country=${encodeURIComponent(picked.country_code)}`,
           )
         }}
       />

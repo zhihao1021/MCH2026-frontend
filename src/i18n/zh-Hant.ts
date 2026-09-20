@@ -30,7 +30,7 @@ export const zhHant: Messages = {
 
   // ---- 首頁 ----
   'home.wizard.title': '依地區查詢作物',
-  'home.wizard.subtitle': '選擇地區與季節，快速找到作物行情',
+  'home.wizard.subtitle': '選擇地區與分類，快速找到作物行情',
   'home.products.title': '瀏覽所有作物',
   'home.products.subtitle': '不篩選地區季節，直接看清單',
   'home.favorites.title': '我的收藏',
@@ -43,22 +43,18 @@ export const zhHant: Messages = {
   'home.menu.settings': '設定',
   'home.menu.about': '關於',
 
-  // ---- 地區 / 季節 / 作物精靈 ----
+  // ---- 地區 / 分類 / 作物精靈 ----
   'wizard.region.title': '選擇地區',
   'wizard.region.hint': '請選擇您所在或想查詢的地區',
   'wizard.region.empty': '目前沒有地區資料',
   'wizard.region.markets.one': '{count} 個市場',
   'wizard.region.markets.other': '{count} 個市場',
-  'wizard.season.title': '{region} － 選擇季節',
-  'wizard.season.hint': '請選擇目前季節',
-  'wizard.crop.title': '{region} {season}',
+  'wizard.category.title': '{region} － 選擇分類',
+  'wizard.category.hint': '請選擇作物分類',
+  'wizard.crop.title': '{region} {category}',
   'wizard.crop.loading': '載入作物清單中',
   'wizard.crop.emptyRegion': '這個地區目前沒有行情或報價',
-  'wizard.crop.emptySeason': '這一季沒有符合的作物',
-  'seasons.spring': '春季',
-  'seasons.summer': '夏季',
-  'seasons.autumn': '秋季',
-  'seasons.winter': '冬季',
+  'wizard.crop.emptyCategory': '這個分類沒有符合的作物',
 
   // ---- 所有作物 ----
   'products.title': '所有作物',

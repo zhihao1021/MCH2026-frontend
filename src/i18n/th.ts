@@ -30,7 +30,7 @@ export const th: Messages = {
 
   // ---- หน้าแรก ----
   'home.wizard.title': 'ค้นหาพืชผลตามพื้นที่',
-  'home.wizard.subtitle': 'เลือกพื้นที่และฤดูกาลเพื่อดูราคาอย่างรวดเร็ว',
+  'home.wizard.subtitle': 'เลือกพื้นที่และหมวดหมู่เพื่อดูราคาอย่างรวดเร็ว',
   'home.products.title': 'ดูพืชผลทั้งหมด',
   'home.products.subtitle': 'รายการทั้งหมด ไม่มีตัวกรอง',
   'home.favorites.title': 'รายการโปรดของฉัน',
@@ -43,22 +43,18 @@ export const th: Messages = {
   'home.menu.settings': 'ตั้งค่า',
   'home.menu.about': 'เกี่ยวกับ',
 
-  // ---- ตัวช่วยเลือกพื้นที่ / ฤดูกาล / พืชผล ----
+  // ---- ตัวช่วยเลือกพื้นที่ / หมวดหมู่ / พืชผล ----
   'wizard.region.title': 'เลือกพื้นที่',
   'wizard.region.hint': 'เลือกพื้นที่ที่คุณอยู่หรือพื้นที่ที่ต้องการค้นหา',
   'wizard.region.empty': 'ยังไม่มีข้อมูลพื้นที่',
   'wizard.region.markets.one': '{count} ตลาด',
   'wizard.region.markets.other': '{count} ตลาด',
-  'wizard.season.title': '{region} — เลือกฤดูกาล',
-  'wizard.season.hint': 'เลือกฤดูกาลปัจจุบัน',
-  'wizard.crop.title': '{region} · {season}',
+  'wizard.category.title': '{region} — เลือกหมวดหมู่',
+  'wizard.category.hint': 'เลือกหมวดหมู่พืชผล',
+  'wizard.crop.title': '{region} · {category}',
   'wizard.crop.loading': 'กำลังโหลดรายการพืชผล',
   'wizard.crop.emptyRegion': 'พื้นที่นี้ยังไม่มีราคาหรือประกาศขาย',
-  'wizard.crop.emptySeason': 'ไม่มีพืชผลที่ตรงกับฤดูกาลนี้',
-  'seasons.spring': 'ฤดูใบไม้ผลิ',
-  'seasons.summer': 'ฤดูร้อน',
-  'seasons.autumn': 'ฤดูใบไม้ร่วง',
-  'seasons.winter': 'ฤดูหนาว',
+  'wizard.crop.emptyCategory': 'ไม่มีพืชผลที่ตรงกับหมวดหมู่นี้',
 
   // ---- พืชผลทั้งหมด ----
   'products.title': 'พืชผลทั้งหมด',

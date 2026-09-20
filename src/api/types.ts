@@ -28,6 +28,20 @@ export type ProductCategory =
   | 'fishery'
   | 'other'
 
+export const PRODUCT_CATEGORIES: ProductCategory[] = [
+  'vegetable',
+  'fruit',
+  'flower',
+  'grain',
+  'livestock',
+  'fishery',
+  'other',
+]
+
+export function isProductCategory(value: string | null): value is ProductCategory {
+  return value !== null && (PRODUCT_CATEGORIES as string[]).includes(value)
+}
+
 export type ProductOut = {
   id: string
   slug: string
