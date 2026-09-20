@@ -683,7 +683,7 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function retailReportToOut(report, viewerUserId, locale) {
+function retailReportToOut(report, viewerUserId) {
   const isOwner = viewerUserId !== undefined && viewerUserId === report.userId
   return {
     id: report.id,
