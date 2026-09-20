@@ -1493,7 +1493,7 @@ async function handleRequest(req, res) {
       createdAt: new Date().toISOString(),
     }
     retailReportsStore.set(report.id, report)
-    sendJson(res, 201, retailReportToOut(report, user.id, locale))
+    sendJson(res, 201, retailReportToOut(report, user.id))
     return
   }
 
@@ -1576,7 +1576,7 @@ async function handleRequest(req, res) {
     })
     list.sort((a, b) => (a.observedOn < b.observedOn ? 1 : -1))
     const page = paginate(list, url)
-    sendJson(res, 200, { ...page, items: page.items.map((r) => retailReportToOut(r, viewer?.id, locale)) })
+    sendJson(res, 200, { ...page, items: page.items.map((r) => retailReportToOut(r, viewer?.id)) })
     return
   }
 
@@ -1588,7 +1588,7 @@ async function handleRequest(req, res) {
       .filter((r) => r.userId === user.id && (includeWithdrawn || r.status === 'active'))
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
     const page = paginate(list, url)
-    sendJson(res, 200, { ...page, items: page.items.map((r) => retailReportToOut(r, user.id, locale)) })
+    sendJson(res, 200, { ...page, items: page.items.map((r) => retailReportToOut(r, user.id)) })
     return
   }
 
@@ -1600,7 +1600,7 @@ async function handleRequest(req, res) {
     if (!report) return sendError(res, 404, 'retail_report_not_found', '找不到這筆回報')
     if (report.userId !== user.id) return sendError(res, 403, 'not_retail_report_owner', '只能撤回自己的回報')
     report.status = 'withdrawn'
-    sendJson(res, 200, retailReportToOut(report, user.id, locale))
+    sendJson(res, 200, retailReportToOut(report, user.id))
     return
   }
 
