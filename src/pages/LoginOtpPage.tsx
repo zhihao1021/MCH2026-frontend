@@ -124,7 +124,6 @@ export function LoginOtpPage() {
                 </option>
                 <option value="consumer">{t('login.otp.role.consumer')}</option>
                 <option value="farmer">{t('login.otp.role.farmer')}</option>
-                <option value="trader">{t('login.otp.role.trader')}</option>
               </select>
               <p className="form__hint">{t('login.otp.role.hint')}</p>
             </div>

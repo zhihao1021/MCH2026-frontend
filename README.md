@@ -1,4 +1,4 @@
-# MCH2026 — Cloud Phone Widget 前端
+# Happy Farm — Cloud Phone Widget 前端
 
 給 CloudMosa **Cloud Phone**（Puffin 遠端瀏覽器的功能機平台）用的 Web App 骨架。
 React 19 + TypeScript + Vite + React Router + SCSS，目前只有介面層，沒有任何後端串接。

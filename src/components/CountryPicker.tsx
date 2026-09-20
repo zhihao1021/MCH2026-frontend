@@ -2,7 +2,8 @@ import { useRef, useState, type KeyboardEvent } from 'react'
 import type { CountryOut } from '../api/types'
 import { useKeypad } from '../hooks/useKeypad'
 import { useSoftKeys } from '../hooks/useSoftKeys'
-import { useT } from '../i18n'
+import { useI18n } from '../i18n'
+import { localizedGeoName } from '../i18n/locale'
 import { countryLabel, filterCountries } from '../lib/phone'
 import { ListView, type ListItem } from './ListView'
 
@@ -22,19 +23,23 @@ type PickerProps = {
  * Cloud Phone 的 <input> 會進全螢幕 IME，所以過濾只能在 onChange 做；LSK 用來把焦點送進搜尋框。
  */
 export function CountryPicker({ title, countries, selectedCode, onSelect, onClose }: PickerProps) {
-  const t = useT()
+  const { t, locale } = useI18n()
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   const filtered = filterCountries(countries, query)
-  const items: (ListItem & { country: CountryOut })[] = filtered.map((c) => ({
-    id: c.code,
-    title: c.name,
-    // 英文語系下 name 就是 name_en，不重複顯示
-    subtitle: c.name === c.name_en ? undefined : c.name_en,
-    trailing: `+${c.dialing_code}`,
-    country: c,
-  }))
+  const items: (ListItem & { country: CountryOut })[] = filtered.map((c) => {
+    const primary = localizedGeoName(locale, c.name, c.name_en)
+    const other = primary === c.name ? c.name_en : c.name
+    return {
+      id: c.code,
+      title: primary,
+      // 另一種語言的名字當輔助說明，兩邊剛好同字（純羅馬字國名）就不重複顯示
+      subtitle: other === primary ? undefined : other,
+      trailing: `+${c.dialing_code}`,
+      country: c,
+    }
+  })
   const initialIndex = Math.max(
     0,
     filtered.findIndex((c) => c.code === selectedCode),
@@ -101,7 +106,7 @@ type FieldProps = {
  * 這個 handler 在子元件掛載、比 <Page> 的軟鍵處理器晚註冊，所以在按鍵堆疊上層。
  */
 export function CountryField({ id, label, country, loading, onOpen }: FieldProps) {
-  const t = useT()
+  const { t, locale } = useI18n()
   const buttonRef = useRef<HTMLButtonElement>(null)
 
   useKeypad((key) => {
@@ -124,7 +129,11 @@ export function CountryField({ id, label, country, loading, onOpen }: FieldProps
         disabled={loading && country === null}
       >
         <span className={country === null ? 'u-muted' : undefined}>
-          {country !== null ? countryLabel(country) : loading ? t('common.loading') : t('login.country.placeholder')}
+          {country !== null
+            ? countryLabel(country, locale)
+            : loading
+              ? t('common.loading')
+              : t('login.country.placeholder')}
         </span>
         <span className="form__picker-chevron" aria-hidden="true">
           ›

@@ -2,18 +2,18 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiErrorNotice } from '../components/ApiErrorNotice'
 import { CountryField, CountryPicker } from '../components/CountryPicker'
-import { useOptionsMenu } from '../components/OptionsMenu'
 import { Page } from '../components/Page'
 import { RoleBadge } from '../components/RoleBadge'
 import { Spinner } from '../components/Spinner'
 import { useToast } from '../components/Toast'
 import { listCountries, listSubdivisions } from '../api/geo'
-import { detectMyLocation, putMyLocation } from '../api/location'
+import { putMyLocation } from '../api/location'
 import { patchMe } from '../api/me'
 import type { LocationVisibility } from '../api/types'
 import { useApi, useApiAction } from '../hooks/useApi'
 import { useAuth } from '../hooks/useAuth'
-import { useT, type MessageKey, type Translate } from '../i18n'
+import { useI18n, type MessageKey, type Translate } from '../i18n'
+import { localizedGeoName } from '../i18n/locale'
 
 const RETURN_TO = '/profile'
 
@@ -54,7 +54,7 @@ export function ProfilePage() {
   const navigate = useNavigate()
   const toast = useToast()
   const auth = useAuth()
-  const t = useT()
+  const { t, locale } = useI18n()
   const user = auth.user
 
   useEffect(() => {
@@ -85,8 +85,6 @@ export function ProfilePage() {
   const [longitude, setLongitude] = useState('')
   const [visibility, setVisibility] = useState<LocationVisibility>('region')
   const [coordError, setCoordError] = useState<MessageKey | null>(null)
-  // 定位端點回傳的 notice 必須原樣顯示（API.md 4.4），免得被當成 GPS 定位
-  const [detectNotice, setDetectNotice] = useState<string | null>(null)
   const [initialized, setInitialized] = useState(false)
 
   useEffect(() => {
@@ -104,54 +102,6 @@ export function ProfilePage() {
 
   const { run: saveProfile, pending: savingProfile, error: profileError } = useApiAction(patchMe)
   const { run: saveLocation, pending: savingLocation, error: locationError } = useApiAction(putMyLocation)
-  // 定位失敗是預期內的（開發機沒有對外 IP、伺服器關掉這功能…），
-  // 一律退回手動輸入，所以這裡不看 error，只用 toast 告知
-  const { run: detect, pending: detecting } = useApiAction(detectMyLocation)
-
-  const runDetect = async () => {
-    const suggestion = await detect()
-    if (suggestion === undefined) {
-      toast(t('profile.toast.detectFailed'))
-      return
-    }
-    if (suggestion.latitude !== null && suggestion.longitude !== null) {
-      setLatitude(String(suggestion.latitude))
-      setLongitude(String(suggestion.longitude))
-      setCoordError(null)
-    }
-    // 已經填過的欄位不覆蓋：推估值只是「幫你少打幾個字」，使用者手動填的比較準
-    if (
-      suggestion.subdivision_code !== null &&
-      subdivisionCode === '' &&
-      (subdivisions ?? []).some((s) => s.code === suggestion.subdivision_code)
-    ) {
-      setSubdivisionCode(suggestion.subdivision_code)
-    }
-    if (suggestion.locality !== null && locality.trim() === '') setLocality(suggestion.locality)
-    setDetectNotice(suggestion.notice)
-    toast(t('profile.toast.detected'))
-  }
-
-  const menu = useOptionsMenu(t('common.options'), [
-    {
-      id: 'detect',
-      label: detecting ? t('profile.menu.detecting') : t('profile.menu.detect'),
-      disabled: detecting,
-      onSelect: () => void runDetect(),
-    },
-    {
-      id: 'clear-coords',
-      label: t('profile.menu.clearCoords'),
-      disabled: latitude.trim() === '' && longitude.trim() === '',
-      onSelect: () => {
-        setLatitude('')
-        setLongitude('')
-        setCoordError(null)
-        setDetectNotice(null)
-        toast(t('profile.toast.coordsCleared'))
-      },
-    },
-  ])
 
   if (auth.loading || user === null) {
     return (
@@ -206,7 +156,6 @@ export function ProfilePage() {
     <Page
       title={t('profile.title')}
       softKeys={{
-        left: { label: t('common.options'), onPress: menu.open },
         center: {
           label: pending ? t('common.saving') : t('common.save'),
           onPress: () => void submit(),
@@ -274,7 +223,7 @@ export function ProfilePage() {
               <option value="">{t('profile.subdivision.none')}</option>
               {(subdivisions ?? []).map((s) => (
                 <option key={s.code} value={s.code}>
-                  {s.name}
+                  {localizedGeoName(locale, s.name, s.name_en)}
                 </option>
               ))}
             </select>
@@ -325,7 +274,6 @@ export function ProfilePage() {
           />
         </div>
         {coordError !== null && <p className="form__error">{t(coordError)}</p>}
-        {detectNotice !== null && <p className="form__hint">{detectNotice}</p>}
         <p className="form__hint">{t('profile.coords.hint')}</p>
 
         <div className="form__field">
@@ -365,7 +313,6 @@ export function ProfilePage() {
 
         {activeError !== null && <ApiErrorNotice error={activeError} />}
       </div>
-      {menu.element}
       {pickerOpen && (
         <CountryPicker
           title={t('login.country.title')}

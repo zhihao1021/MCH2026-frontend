@@ -23,16 +23,21 @@ import { useApi } from '../hooks/useApi'
 import { useAuth } from '../hooks/useAuth'
 import { useFavorites } from '../hooks/useFavorites'
 import { useT } from '../i18n'
+import { getScreenClass, type ScreenClass } from '../lib/device'
 import { categoryLabel, roleLabel } from '../lib/labels'
 import { sideShortLabel } from '../lib/quoteSide'
 import { getSectionOrder, type ProductSectionKey } from '../lib/productSections'
 import { sameRegion } from '../lib/region'
 
 const DAYS = 14
-// 報價那一幕上面還有範圍條，且每列兩行（名稱＋報價），QVGA 只放得下 3 列；
-// 市場那一幕整幕都是單行清單，放 5 列
-const QUOTERS_PER_SCREEN = 3
-const MARKETS_PER_SCREEN = 5
+/**
+ * 報價那一幕上面還有範圍條，且每列兩行（名稱＋報價）；市場那一幕整幕都是單行清單。
+ * 兩個都曾經寫死用 QVGA 的量（3 列／5 列），但 QQVGA（128x160）扣掉標題與範圍條後
+ * 剩不到 15px，3 列兩行清單完全放不下——不是被截到一點，是整個清單都看不見。
+ * 依螢幕級距分開給值，QQVGA 用小很多的量換取「至少看得到」。
+ */
+const QUOTERS_PER_SCREEN: Record<ScreenClass, number> = { qqvga: 1, qvga: 3, large: 5 }
+const MARKETS_PER_SCREEN: Record<ScreenClass, number> = { qqvga: 2, qvga: 5, large: 8 }
 /**
  * 市場清單走 /prices/official（分頁端點，上限 200）而不是 overview 的 official：
  * overview 的 markets_limit 預設只有 10 筆，但這一幕是翻頁顯示的，
@@ -105,6 +110,9 @@ export function ProductDetailPage() {
   const wantedScreen = searchParams.get('screen')
   const [screenState, setScreenState] = useState({ ref, index: -1 })
   const setScreenIndex = (index: number) => setScreenState({ ref, index })
+  // 報價幕的範圍條刻度跟著下方清單目前聚焦的那一筆走（參考 IntentGauge 的游標做法），
+  // 一開始（或清單是空的）沒有聚焦目標，退回顯示平均價
+  const [selectedQuotePrice, setSelectedQuotePrice] = useState<number | null>(null)
 
   const toast = useToast()
   const favorites = useFavorites()
@@ -137,10 +145,14 @@ export function ProductDetailPage() {
   }
 
   const quoteUrl = `/products/${encodeURIComponent(ref ?? '')}/quote`
+  const supermarketPriceUrl = `/products/${encodeURIComponent(ref ?? '')}/supermarket-price`
   const intentUrl = `/products/${encodeURIComponent(ref ?? '')}/intent`
-  // 報價介面只給小農／盤商（後端算好的 can_quote）。還沒登入的人先給入口，
+  // 報價介面只給小農（後端算好的 can_quote）。還沒登入的人先給入口，
   // 進去會被導去登入；登入後若是消費者就完全不顯示。
   const canQuote = auth.user === null || auth.user.can_quote
+  // 意向價任何登入者都能提，但小農是供給端不該自己喊需求價（見 IntentFormPage）；
+  // 還沒登入的人先給入口，進去會被導去登入。
+  const canIntent = auth.user === null || auth.user.role !== 'farmer'
 
   const menu = useOptionsMenu(t('common.options'), [
     {
@@ -158,10 +170,13 @@ export function ProductDetailPage() {
         reloadIntent()
       },
     },
-    // 期望價任何登入者都能提（API.md 9.2）；未登入進去會被導去登入
-    { id: 'intent', label: t('detail.menu.newIntent'), onSelect: () => navigate(intentUrl) },
-    ...(auth.user !== null
-      ? [{ id: 'my-intents', label: t('detail.menu.myIntents'), onSelect: () => navigate('/intents/mine') }]
+    ...(canIntent
+      ? [
+          { id: 'intent', label: t('detail.menu.newIntent'), onSelect: () => navigate(intentUrl) },
+          ...(auth.user !== null
+            ? [{ id: 'my-intents', label: t('detail.menu.myIntents'), onSelect: () => navigate('/intents/mine') }]
+            : []),
+        ]
       : []),
     ...(canQuote
       ? [
@@ -169,10 +184,17 @@ export function ProductDetailPage() {
           { id: 'my-quotes', label: t('detail.menu.myQuotes'), onSelect: () => navigate('/quotes/mine') },
         ]
       : []),
+    // 零售價回報任何登入者都能用，不需要小農／盤商身分（API.md 10.2）
+    {
+      id: 'supermarket-price',
+      label: t('detail.menu.newSupermarketPrice'),
+      onSelect: () => navigate(supermarketPriceUrl),
+    },
     { id: 'all', label: t('detail.menu.allProducts'), onSelect: () => navigate('/products') },
   ])
 
   function buildScreens({ overview, quotes, markets: marketPage }: Detail): Screen[] {
+    const screenClass = getScreenClass()
     const { product, image, official, official_series: series } = overview
     const latestAvg = series?.points.at(-1)?.avg ?? official[0]?.price_avg ?? null
     const currency = series?.currency ?? official[0]?.currency ?? 'TWD'
@@ -281,7 +303,7 @@ export function ProductDetailPage() {
           ),
         },
       ],
-      quotes: chunk(quoters, QUOTERS_PER_SCREEN).map((group) => {
+      quotes: chunk(quoters, QUOTERS_PER_SCREEN[screenClass]).map((group) => {
         const rows: ListItem[] = group.map((q) => ({
           id: q.seller.id,
           title: q.seller.business_name ?? q.seller.display_name ?? t('userProfile.unnamed'),
@@ -304,6 +326,7 @@ export function ProductDetailPage() {
                 currency={overview.quotes.currency ?? currency}
                 unit={overview.quotes.unit ?? product.default_unit}
                 count={overview.quotes.count}
+                selected={selectedQuotePrice}
               />
               <div className="deck__list">
                 <ListView
@@ -311,13 +334,14 @@ export function ProductDetailPage() {
                   enabled={!menu.isOpen}
                   emptyText={t('detail.quotes.empty')}
                   onSelect={(item) => navigate(`/users/${encodeURIComponent(item.id)}`)}
+                  onFocusChange={(_, index) => setSelectedQuotePrice(parseDecimalOrNull(group[index]?.price))}
                 />
               </div>
             </>
           ),
         }
       }),
-      markets: chunk(markets, MARKETS_PER_SCREEN).map((group, i, groups) => ({
+      markets: chunk(markets, MARKETS_PER_SCREEN[screenClass]).map((group, i, groups) => ({
         kind: 'markets',
         selectable: false,
         label: t('detail.screen.markets'),

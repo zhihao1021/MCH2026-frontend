@@ -1047,18 +1047,18 @@ GET /v1/products/{ref}/overview
   "official": [
     {
       "market_id": "f8e7d6c5-...",
-      "market_name": "示範第一市場",
-      "region": "台北市",
-      "country_code": "TW",
+      "market_name": "Azadpur Mandi",
+      "region": "Delhi",
+      "country_code": "IN",
       "source_key": "demo_mock",
       "trade_date": "2026-09-18",
-      "currency": "TWD",
+      "currency": "INR",
       "unit": "kg",
       "grade": null,
-      "price_avg": "19.20",
-      "price_high": "25.90",
-      "price_low": "13.40",
-      "volume": "1294.000",
+      "price_avg": "21.84",
+      "price_high": "25.77",
+      "price_low": "18.56",
+      "volume": "9016.000",
       "volume_unit": "kg"
     }
   ],
@@ -1253,13 +1253,36 @@ GET /v1/quotes
 | `side` | string | `sell`（我要賣）/ `buy`（我要收） |
 | `role` | string | 只看小農 `farmer` 或盤商 `trader` |
 | `country_code` | string | 國碼篩選 |
+| `subdivision_code` | string | **精確篩選用這個**：ISO 3166-2，例如 `TW-TPE`。清單見 8.2 |
 | `region` | string | 地區篩選 |
 | `market_id` | UUID | 只看指定市場的報價 |
 | `limit` / `offset` | int | 分頁 |
 
 排序：最新建立的在前。
 
-### 8.2 新增報價（需登入，身分為 farmer / trader）
+### 8.2 有報價的地區 ⭐
+
+```
+GET /v1/quotes/regions?country_code=TW
+```
+
+地區選單請用這支，回的每個值都保證**至少有一筆有效報價**。
+
+```json
+[
+  { "region": "高雄市", "subdivision_code": "TW-KHH", "country_code": "TW", "quote_count": 17 },
+  { "region": "宜蘭縣", "subdivision_code": "TW-ILA", "country_code": "TW", "quote_count": 17 }
+]
+```
+
+> **不要用 `/markets/regions` 來篩報價。** 那是**市場**的地區，與報價的地區
+> 來自不同來源，字面不保證相同——`/markets/regions` 會給你 `台北市`，
+> 但報價可能存成 `臺北市`，用等值比對會一筆都查不到。
+
+**篩選時優先用 `subdivision_code`。** `region` 是給人看的顯示字串，
+後端雖然做了寬鬆比對（吸收臺／台這類異體字），但 ISO 代碼才是穩定的鍵。
+
+### 8.3 新增報價（需登入，身分為 farmer / trader）
 
 ```
 POST /v1/quotes
@@ -1307,7 +1330,7 @@ POST /v1/quotes
 - 有效報價數有上限（預設 50 筆），超過 409 `quote_limit_reached`
 - 品項不存在或已停用 → 404 `product_not_found`
 
-### 8.3 單筆報價（公開）
+### 8.4 單筆報價（公開）
 
 ```
 GET /v1/quotes/{quote_id}
@@ -1315,7 +1338,7 @@ GET /v1/quotes/{quote_id}
 
 **回應**：`QuoteOut`。
 
-### 8.4 修改報價（需登入，僅限本人）
+### 8.5 修改報價（需登入，僅限本人）
 
 ```
 PATCH /v1/quotes/{quote_id}
@@ -1333,7 +1356,7 @@ PATCH /v1/quotes/{quote_id}
 已下架（`withdrawn` / `hidden`）的報價不可修改 → 409 `quote_not_editable`。
 非本人 → 403 `not_quote_owner`。
 
-### 8.5 `QuoteOut` 形狀
+### 8.6 `QuoteOut` 形狀
 
 ```json
 {
@@ -1373,7 +1396,7 @@ PATCH /v1/quotes/{quote_id}
 | `seller.phone_is_masked` | 目前電話是否被遮罩 |
 | `valid_until` | 過期時間；`null` = 永不過期 |
 
-### 8.6 下架報價（需登入，僅限本人）
+### 8.7 下架報價（需登入，僅限本人）
 
 ```
 DELETE /v1/quotes/{quote_id}
@@ -1498,7 +1521,9 @@ GET /v1/products/{ref}/intents/summary?region=臺北市
   "sample_count": 12,
   "submitted_count": 15,
   "excluded_count": 3,
-  "exclusions": { "outlier": 3 }
+  "exclusions": { "outlier": 3 },
+  "outlier_filter_active": true,
+  "min_samples_for_outlier_filter": 3
 }
 ```
 
@@ -1506,10 +1531,40 @@ GET /v1/products/{ref}/intents/summary?region=臺北市
 | --- | --- |
 | `anchor_price` | **這才是要顯示的錨點**：信譽加權的中位數 |
 | `median` / `trimmed_mean` | 未加權的中位數與截尾均值，供對照 |
-| `lower_bound` / `upper_bound` | IQR 容許區間，區間外視為離群值 |
+| `lower_bound` / `upper_bound` | IQR 容許區間，**用倍率護欄之後的樣本算出來的** |
+| `outlier_filter_active` | 這次聚合有沒有執行離群排除。見下方說明 |
+| `min_samples_for_outlier_filter` | 開始有防護所需的樣本數（`INTENT_MIN_SAMPLES_FOR_RATIO_GUARD`，預設 3） |
 | `demand_quantity` | 需求總量（只加總有填數量的意向）。`null` 代表沒人填數量 |
 | `sample_count` | 納入計算的筆數 |
 | `exclusions` | 各排除原因的筆數，例如 `{"outlier": 3, "shadowed": 1}` |
+
+#### 離群排除的兩層
+
+擋的東西不一樣，所以分開做：
+
+| 層 | 門檻 | 規則 | 擋什麼 |
+| --- | --- | --- | --- |
+| 倍率護欄 | 3 筆 | 偏離**中位數** `INTENT_MAX_MEDIAN_RATIO` 倍（預設 5）以上 | 量級層次的灌水，例如中位數 850 卻出價 12000 |
+| IQR | 8 筆 | 落在 `lower_bound` / `upper_bound` 之外 | 幅度較小、要看分布才判斷得出來的離群值 |
+
+兩層都記為 `outlier`，`exclusions` 不區分來源。
+
+**護欄先跑。** 兩筆以上協同的極端值會把 Q3 撐高、容許區間跟著放寬，
+幅度小一點的灌水值就能躲過 IQR；先砍掉量級層次的假值，IQR 才會在
+乾淨的分布上判斷。所以 `q1` / `q3` / `lower_bound` / `upper_bound`
+都是**護欄之後**的樣本算出來的。
+
+倍率設在 5 倍是刻意放寬：真實的品質價差、產地價差很少超過兩三倍，
+這個設定幾乎不可能誤殺，但足以擋下量級層次的操縱。
+
+> **少於 3 筆時完全不排除**，`outlier_filter_active` 會是 `false`，
+> 這時區間外的值仍會計入 `sample_count` 與 `min_price` / `max_price`。
+> 前端請依這個旗標決定要不要顯示價格區間。
+
+> **已知限制：攻擊者佔過半時護欄會反轉。** 基準是中位數，一旦惡意出價
+> 成為多數，中位數就被搬走，被排除的反而是誠實的那一邊。任何以中位數
+> 為錨的機制都有這個性質。過半灌票不是離群值問題，防線在別處：
+> 信譽權重、冷卻期、影子封禁、機房 IP 偵測——那些擋的是同一個人灌很多筆。
 
 > **刻意不提供算術平均。** 一筆惡意的 999999 就能把平均拉垮，中位數卻
 > 幾乎不動——這是 PRD 目標一的核心。實測 12 筆正常意向被灌入 3 筆
@@ -1528,7 +1583,7 @@ GET    /v1/me/reputation
 | 值 | 意思 |
 | --- | --- |
 | `null` | 有計入 |
-| `outlier` | 落在 IQR 容許區間外 |
+| `outlier` | 被離群排除擋下（倍率護欄或 IQR，見 9.3） |
 | `below_floor` | 低於成本底線 |
 | `shadowed` | 提交者被影子封禁 |
 | `untrusted_ip` | 來自機房 / Proxy IP |
@@ -1567,9 +1622,273 @@ POST /v1/admin/quotes/{quote_id}/match-intents   找出該通知誰（需 admin 
 
 ---
 
-## 10. 資料來源（公開）
+## 10. 消費者回報的超市零售價 ⭐
 
-### 9.1 資料來源清單
+消費者把在通路看到的標價回報上來，平台聚合成「這個作物在這一區大概賣多少」，
+再跟官方批發行情對照算出**產銷價差**。
+
+```
+POST   /v1/products/{ref}/retail-prices          回報我看到的價格
+GET    /v1/products/{ref}/retail-prices          近期回報清單（公開）
+GET    /v1/products/{ref}/retail-prices/summary  零售價看板（公開）
+GET    /v1/products/{ref}/retail-prices/spread   產銷價差（公開）
+GET    /v1/me/retail-prices                      我回報過的
+DELETE /v1/me/retail-prices/{id}                 撤回
+```
+
+### 10.1 跟第 8、9 節的差別
+
+平台上有四種價格，寫給前端的人常常搞混，所以先講清楚：
+
+| 資料 | 性質 | 誰提供 | 單筆公開？ |
+| --- | --- | --- | --- |
+| 官方行情（§7） | 批發成交價 | 官方資料源 | ✅ |
+| 民間報價（§8） | 開價（**要約**） | 小農 / 盤商 | ✅ |
+| 意向價格（§9） | 願付價（**意願**） | 消費者 | ❌ 只給聚合 |
+| **零售回報（本節）** | 實際售價（**觀察**） | 消費者 | ✅ |
+
+> **單筆零售回報是公開的**，這點跟第 9 節相反。意向價格會洩漏個人的
+> 願付價格所以只給聚合值；零售回報是對商店的客觀觀察，「某某量販店
+> ₹38/kg、兩天前」正是使用者要的比價資訊，藏起來這個功能就沒意義了。
+>
+> 公開的只有店家與價格。回報者僅顯示暱稱，`excluded_reason` 只有本人看得到。
+
+### 10.2 回報我看到的價格
+
+```
+POST /v1/products/{ref}/retail-prices
+```
+
+**任何登入者都能回報**，不需要小農／盤商身分。
+
+```json
+{
+  "observed_price": "40.00",
+  "pack_size": "0.5",
+  "store_name": "Big Bazaar",
+  "store_type": "hypermarket",
+  "store_branch": "Koramangala",
+  "observed_on": "2026-09-19",
+  "is_promotion": false,
+  "note": "貨架上還有很多"
+}
+```
+
+| 欄位 | 必填 | 說明 |
+| --- | --- | --- |
+| `observed_price` | ✅ | **標籤上看到的價格**，也就是整包的價格 |
+| `store_name` | ✅ | 店名 |
+| `pack_size` | | 包裝規格（以 `unit` 計）。標「500g／₹40」就填 `0.5` |
+| `store_type` | | 通路別，預設 `supermarket`。見 §12 |
+| `store_branch` | | 分店 |
+| `unit` / `currency` | | 省略則用品項標準單位與個人檔案幣別 |
+| `observed_on` | | **看到價格的日期**，不是送出日期。省略則為今天 |
+| `is_promotion` | | 是否為特價。影響是否計入看板，見 10.3 |
+| `location_text` | | 自由填寫的地點描述 |
+| `photo_url` | | 價格標籤或收據照片。**上傳管道還沒接**，目前只吃外部網址 |
+| `note` | | ≤300 字 |
+
+> **不要自己換算單位價。** 超市標的是「500g / ₹40」，讓使用者心算成
+> 每公斤多少一定會錯。照標籤填 `observed_price=40`、`pack_size=0.5`，
+> 後端算出 `unit_price=80.00`，聚合一律用 `unit_price`。
+> 沒填 `pack_size` 時 `unit_price` 就等於 `observed_price`。
+
+回應是一筆 `RetailReportOut`：
+
+```json
+{
+  "id": "9f2c...",
+  "product_id": "3ab1...",
+  "observed_price": "40.00",
+  "pack_size": "0.5",
+  "unit_price": "80.00",
+  "currency": "INR",
+  "unit": "kg",
+  "is_promotion": false,
+  "store_type": "hypermarket",
+  "store_name": "Big Bazaar",
+  "store_branch": "Koramangala",
+  "country_code": "IN",
+  "subdivision_code": "IN-KA",
+  "region": "Karnataka",
+  "observed_on": "2026-09-19",
+  "photo_url": null,
+  "note": "貨架上還有很多",
+  "status": "active",
+  "excluded_reason": null,
+  "reporter": { "display_name": "Ravi", "is_me": true },
+  "created_at": "2026-09-20T04:10:00Z"
+}
+```
+
+**錯誤**：
+
+| HTTP | code | 說明 |
+| --- | --- | --- |
+| 400 | `retail_observation_future` | `observed_on` 是未來的日期 |
+| 400 | `retail_observation_too_old` | 超過可補登天數（預設 7 天）。`details.max_age_days` |
+| 429 | `retail_store_cooldown` | 同一店家同一作物的冷卻期（預設 24 小時）。`details.retry_after` 是秒數 |
+
+> **冷卻期綁在「同一人 × 同一作物 × 同一店家」**，不是像意向價格那樣
+> 一人一筆。零售回報是觀察，同一個人本來就可能在三家店看到三個價格，
+> 那三筆都該收下。店名會正規化後比對（`Big Bazaar` 與 `big  bazaar`
+> 算同一家），所以改大小寫沒辦法繞過冷卻期。
+
+> **通過檢查不代表一定計入看板。** 若來源是機房／VPN IP，或帳號已被
+> 影子封禁，**仍然回 201 且本人看得到自己的數字**，只是 `excluded_reason`
+> 會標記、聚合時不算。這跟第 9 節一樣是刻意的。
+
+### 10.3 零售價看板
+
+```
+GET /v1/products/{ref}/retail-prices/summary?region=Karnataka&days=14
+```
+
+公開端點。
+
+| 參數 | 預設 | 說明 |
+| --- | --- | --- |
+| `days` | 14 | 統計近幾天的回報 |
+| `region` | | 地區顯示名 |
+| `subdivision_code` | | ISO 3166-2。**精確篩選請用這個** |
+| `country_code` | | |
+| `include_promotions` | `false` | 是否把特價一併計入 |
+
+```json
+{
+  "product": { "...": "ProductOut" },
+  "region": "Karnataka",
+  "currency": "INR",
+  "unit": "kg",
+  "days": 14,
+  "typical_price": "78.50",
+  "median": "80.00",
+  "min_price": "62.00",
+  "max_price": "110.00",
+  "q1": "71.00", "q3": "92.00",
+  "sample_count": 23,
+  "submitted_count": 26,
+  "excluded_count": 3,
+  "store_count": 9,
+  "outlier_filter_active": true,
+  "min_samples_for_outlier_filter": 3,
+  "exclusions": { "outlier": 2, "untrusted_ip": 1 },
+  "by_store_type": [
+    { "store_type": "convenience", "median": "104.00", "sample_count": 4 },
+    { "store_type": "hypermarket", "median": "68.00", "sample_count": 11 },
+    { "store_type": "wet_market",  "median": "74.00", "sample_count": 8 }
+  ]
+}
+```
+
+| 欄位 | 說明 |
+| --- | --- |
+| `typical_price` | **這才是要顯示的數字**：信譽加權的中位數 |
+| `median` | 未加權的中位數，供對照 |
+| `store_count` | 涵蓋幾家不同的店。只有 1～2 家時代表樣本很集中，前端宜提示 |
+| `by_store_type` | 分通路的中位數 |
+| `outlier_filter_active` | 這次有沒有執行離群排除 |
+
+> **`by_store_type` 請務必顯示，不要只給一個總數。** 便利商店是量販店的
+> 兩倍很正常，把兩者平均掉的話哪一邊都不像。總數 `typical_price` 適合
+> 當概覽，實際比價要看分通路。
+
+> **特價預設不計入。** 促銷是短暫的，混進主統計會讓「平常大概多少錢」
+> 失真。要看特價請帶 `include_promotions=true`，或用 10.5 的清單端點
+> （那支預設全收）。
+
+**離群排除跟第 9.3 節用同一套倍率護欄**（偏離中位數 5 倍以上排除，
+3 筆樣本起生效），但**不做 IQR**：零售價本來就會因通路差距很大，
+IQR 會把整個通路的樣本當成離群值砍掉。跨通路的差異改用 `by_store_type`
+分開呈現，而不是抹平。
+
+> **沒有成本底線檢查。** 第 9.2 節會擋掉低於產地成本的意向價，這裡不會——
+> 零售價低只是看到特價，那是真實資訊，擋掉反而讓看板失真。
+> 所以 `excluded_reason` 不會出現 `below_floor`。
+
+### 10.4 產銷價差 ⭐
+
+```
+GET /v1/products/{ref}/retail-prices/spread?region=Karnataka
+```
+
+這是整個零售回報功能存在的理由。批發價本來就是公開資料，零售價過去只有
+走一趟超市才知道，中間差多少也就無從討論。兩邊湊齊才看得出來
+**「產地跌了三成，架上為什麼沒動」**。
+
+```json
+{
+  "product": { "...": "ProductOut" },
+  "region": "Karnataka",
+  "currency": "INR",
+  "unit": "kg",
+  "retail_price": "78.50",
+  "wholesale_price": "26.80",
+  "spread": "51.70",
+  "spread_pct": "192.91",
+  "retail_samples": 23,
+  "wholesale_days": 14,
+  "wholesale_source": "region"
+}
+```
+
+| 欄位 | 說明 |
+| --- | --- |
+| `retail_price` | 零售看板的 `typical_price` |
+| `wholesale_price` | 同期官方批發行情的中位數 |
+| `spread` | 零售 − 批發 |
+| `spread_pct` | 相對批發價的百分比 |
+| `wholesale_source` | 批發價的取樣範圍：`region` / `country` / `null` |
+
+> **`wholesale_source` 為 `null` 時 `spread` 也是 `null`，不要當成價差為零。**
+> 那代表查無官方行情，不是「沒有價差」。前端請顯示「暫無批發資料可對照」。
+
+> 取樣範圍會逐步放寬：先找同區域的市場，沒有就退回全國。這個退回是必要的——
+> 零售回報的 `region` 來自使用者檔案的 ISO 行政區，而市場的 `region` 是
+> 資料源自訂字串，兩個命名空間不保證一致（`臺北市` vs `台北市`）。
+
+### 10.5 回報清單
+
+```
+GET /v1/products/{ref}/retail-prices?region=Karnataka&store_type=hypermarket
+```
+
+公開端點，分頁。使用者實際比價看的就是這個——哪家店、多少錢、什麼時候。
+
+| 參數 | 預設 | 說明 |
+| --- | --- | --- |
+| `days` | 14 | |
+| `region` / `subdivision_code` / `country_code` | | 同 10.3 |
+| `store_type` | | 只看某種通路 |
+| `include_promotions` | **`true`** | 這支預設**全收**，跟看板相反 |
+
+依 `observed_on` 由新到舊排序。回應是 `Page<RetailReportOut>`。
+
+### 10.6 我的回報
+
+```
+GET    /v1/me/retail-prices?include_withdrawn=false
+DELETE /v1/me/retail-prices/{report_id}
+```
+
+只有在這裡（以及清單裡自己那幾筆）看得到 `excluded_reason`：
+
+| 值 | 意思 |
+| --- | --- |
+| `null` | 有計入 |
+| `outlier` | 偏離中位數過遠 |
+| `shadowed` | 回報者被影子封禁 |
+| `untrusted_ip` | 來自機房 / Proxy IP |
+| `zero_weight` | 信譽權重已降到 0 |
+
+信譽權重與第 9 節**共用**（`GET /v1/me/reputation`）——判斷的是同一個人
+可不可信，在意向價格灌水的帳號，回報零售價時同樣不該被採信。
+
+---
+
+## 11. 資料來源（公開）
+
+### 11.1 資料來源清單
 
 ```
 GET /v1/sources
@@ -1584,12 +1903,12 @@ GET /v1/sources
   "sources": [
     {
       "key": "demo_mock",
-      "name": "Demo Mock Market",
-      "country_code": "TW",
-      "currency": "TWD",
-      "timezone": "Asia/Taipei",
-      "version": "1.0.0",
-      "description": "離線開發與測試用的假資料來源",
+      "name": "India APMC Mandi (Demo)",
+      "country_code": "IN",
+      "currency": "INR",
+      "timezone": "Asia/Kolkata",
+      "version": "2.0.0",
+      "description": "印度 APMC 批發市場的模擬行情，依產季與季風生成",
       "homepage_url": null,
       "license": "MIT",
       "schedule": "*/30 * * * *",
@@ -1614,7 +1933,7 @@ GET /v1/sources
 | `last_error` | 最近一次失敗原因 |
 | `load_errors` | 載入失敗的 extension（服務不會因此停掉，但這裡看得到） |
 
-### 9.2 單一資料來源
+### 11.2 單一資料來源
 
 ```
 GET /v1/sources/{key}
@@ -1624,7 +1943,7 @@ GET /v1/sources/{key}
 
 ---
 
-## 11. 管理端點（維運用，不給 App）
+## 12. 管理端點（維運用，不給 App）
 
 全部需要 header `X-Admin-Token: <ADMIN_API_TOKEN>`。給部署後維運使用，
 前端 App 不需要（也無法）呼叫。以下僅列清單：
@@ -1646,7 +1965,7 @@ GET /v1/sources/{key}
 
 ---
 
-## 12. 枚舉值一覽
+## 13. 枚舉值一覽
 
 ### `IntentStatus`（意向狀態）
 
@@ -1656,9 +1975,40 @@ GET /v1/sources/{key}
 | `superseded` | 被同一人同作物的新意向取代 |
 | `withdrawn` | 使用者自行撤回 |
 
-### `IntentExclusion`（沒被計入看板的原因）
+### `IntentExclusion`（意向沒被計入看板的原因）
 
 `null` 代表有計入。其餘見 9.4 的表。
+
+### `StoreType`（零售通路別）
+
+| 值 | 說明 |
+| --- | --- |
+| `supermarket` | 超市（**預設**） |
+| `hypermarket` | 量販店 |
+| `convenience` | 便利商店 |
+| `wet_market` | 傳統市場 / 菜市場 |
+| `grocery` | 雜貨店 / 小商店 |
+| `online` | 電商 |
+| `cooperative` | 合作社 / 農會直營 |
+| `other` | 其他 |
+
+通路別會直接影響價格水準（量販 < 超市 < 便利商店），所以 10.3 的看板
+會用 `by_store_type` 分開呈現，不要自己平均掉。
+
+### `RetailReportStatus`（零售回報狀態）
+
+| 值 | 說明 |
+| --- | --- |
+| `active` | 有效 |
+| `withdrawn` | 回報者自行撤回 |
+| `hidden` | 遭檢舉 / 違規下架（管理端） |
+
+### `RetailExclusion`（零售回報沒被計入的原因）
+
+`null` 代表有計入。其餘見 10.6 的表。
+
+**刻意沒有 `below_floor`**——意向價低於成本底線代表惡意壓價，
+但零售價低只是看到特價，那是真實資訊。
 
 
 ### `UserRole`（身分）
@@ -1717,7 +2067,7 @@ GET /v1/sources/{key}
 
 ---
 
-## 13. 給前端的實作建議
+## 14. 給前端的實作建議
 
 1. **詳情頁用 `/products/{ref}/overview`**：一次拿齊官方價、走勢、報價摘要，
    省兩趟往返（功能機在 4G 下這差別很明顯）。
@@ -1756,3 +2106,10 @@ GET /v1/sources/{key}
 17. **用 `user.can_quote` 控制報價入口**：不要自己判斷 `role`，
     後端已經算好。身分註冊後不能改，所以這個值在整個 session 內是穩定的，
     可以安心快取。選錯身分的使用者請導向客服，不要在 App 裡提供切換。
+18. **零售回報的表單照標籤填，不要叫使用者換算**：超市標的是「500g／₹40」，
+    心算成每公斤多少一定會錯。`observed_price` 填 40、`pack_size` 填 0.5，
+    後端算 `unit_price`（10.2）。
+19. **零售看板一定要顯示 `by_store_type`**：便利商店是量販店的兩倍很正常，
+    只給一個平均數哪一邊都不像（10.3）。
+20. **產銷價差的 `null` 不是零**：`wholesale_source` 為 `null` 時代表查無
+    官方行情，請顯示「暫無批發資料可對照」而不是「價差 0」（10.4）。

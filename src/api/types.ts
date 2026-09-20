@@ -119,7 +119,7 @@ export type OverviewOut = {
   updated_at: string
 }
 
-export type UserRole = 'consumer' | 'farmer' | 'trader'
+export type UserRole = 'consumer' | 'farmer'
 export type UnitSystem = 'metric' | 'imperial'
 /** 位置公開精細度：exact=精確座標/地址、approximate=大概位置、region=只顯示縣市、private=不公開。 */
 export type LocationVisibility = 'exact' | 'approximate' | 'region' | 'private'
@@ -551,4 +551,122 @@ export type IntentCreateBody = {
 export type NotificationResponseBody = {
   /** true = 點了「前往購買」；false = 只是看過。 */
   clicked: boolean
+}
+
+// ---- 消費者回報的超市零售價（API.md 10） ----
+
+export type StoreType =
+  | 'supermarket'
+  | 'hypermarket'
+  | 'convenience'
+  | 'wet_market'
+  | 'grocery'
+  | 'online'
+  | 'cooperative'
+  | 'other'
+
+export const STORE_TYPES: StoreType[] = [
+  'supermarket',
+  'hypermarket',
+  'convenience',
+  'wet_market',
+  'grocery',
+  'online',
+  'cooperative',
+  'other',
+]
+
+export function isStoreType(value: string | null): value is StoreType {
+  return value !== null && (STORE_TYPES as string[]).includes(value)
+}
+
+export type RetailReportStatus = 'active' | 'withdrawn' | 'hidden'
+
+/** 為什麼沒被計入零售看板；null 代表有計入。刻意沒有 below_floor（API.md 10.2）。 */
+export type RetailExclusion = 'outlier' | 'shadowed' | 'untrusted_ip' | 'zero_weight'
+
+export type RetailReportOut = {
+  id: string
+  product_id: string
+  /** 標籤上看到的價格，也就是整包的價格。 */
+  observed_price: string
+  /** 包裝規格（以 unit 計）；沒填時 unit_price 等於 observed_price。 */
+  pack_size: string | null
+  /** 後端算好的每單位價格，聚合一律用這個，不要自己換算。 */
+  unit_price: string
+  currency: string
+  unit: string
+  is_promotion: boolean
+  store_type: StoreType
+  store_name: string
+  store_branch: string | null
+  country_code: string
+  subdivision_code: string | null
+  region: string | null
+  /** 看到價格的日期，不是送出日期。 */
+  observed_on: string
+  photo_url: string | null
+  note: string | null
+  status: RetailReportStatus
+  /** 只有本人（含 /me/retail-prices）看得到；公開清單一律是 null。 */
+  excluded_reason: RetailExclusion | null
+  reporter: { display_name: string | null; is_me: boolean }
+  created_at: string
+}
+
+export type CreateRetailReportBody = {
+  observed_price: string
+  store_name: string
+  pack_size?: string
+  store_type?: StoreType
+  store_branch?: string
+  unit?: string
+  currency?: string
+  /** 省略則為今天；補登超過後端上限（預設 7 天）會被拒絕。 */
+  observed_on?: string
+  is_promotion?: boolean
+  location_text?: string
+  /** 上傳管道還沒接，目前只吃外部網址。 */
+  photo_url?: string
+  note?: string
+}
+
+export type RetailPriceSummaryOut = {
+  product: ProductOut
+  region: string | null
+  currency: string | null
+  unit: string | null
+  days: number
+  /** 這才是要顯示的數字：信譽加權的中位數。 */
+  typical_price: string | null
+  median: string | null
+  min_price: string | null
+  max_price: string | null
+  q1: string | null
+  q3: string | null
+  sample_count: number
+  submitted_count: number
+  excluded_count: number
+  /** 涵蓋幾家不同的店；只有 1～2 家時樣本很集中，前端宜提示。 */
+  store_count: number
+  outlier_filter_active: boolean
+  min_samples_for_outlier_filter: number
+  exclusions: Partial<Record<RetailExclusion, number>>
+  /** 務必分開顯示，不要只給一個總數——便利商店本來就比量販店貴。 */
+  by_store_type: { store_type: StoreType; median: string; sample_count: number }[]
+}
+
+export type RetailPriceSpreadOut = {
+  product: ProductOut
+  region: string | null
+  currency: string | null
+  unit: string | null
+  retail_price: string | null
+  wholesale_price: string | null
+  spread: string | null
+  spread_pct: string | null
+  retail_samples: number
+  wholesale_days: number
+  /** null 時 spread 也是 null：代表查無官方行情，不是價差為零。 */
+  wholesale_source: 'region' | 'country' | null
 }

@@ -44,12 +44,16 @@ export function IntentFormPage() {
 
   const returnTo = `/products/${encodeURIComponent(ref ?? '')}/intent`
   const region = auth.user?.location.subdivision_name ?? undefined
+  // 小農是供給端，意向價是需求側訊號：讓小農自己提意向價等於自己跟自己喊價，
+  // 所以這裡刻意擋掉——小農仍能在作物頁「看」意向看板，只是不能提交（見 productSections.ts）
+  const isFarmer = auth.user?.role === 'farmer'
 
-  // auth 還在載時不打：底線與看板都要依使用者的行政區查，先打一次再重打只是浪費往返
+  // auth 還在載時不打：底線與看板都要依使用者的行政區查，先打一次再重打只是浪費往返；
+  // 小農會被擋下不給提交，也不用白白打這幾支 API
   const authLoading = auth.loading
   const { data, loading, error, reload } = useApi<FormData | null>(
-    () => (authLoading ? Promise.resolve(null) : loadForm(ref ?? '', region)),
-    [ref, region, authLoading],
+    () => (authLoading || isFarmer ? Promise.resolve(null) : loadForm(ref ?? '', region)),
+    [ref, region, authLoading, isFarmer],
   )
   const { run: submitIntent, pending, error: submitError } = useApiAction(createIntent)
 
@@ -72,6 +76,15 @@ export function IntentFormPage() {
   }
 
   if (auth.user === null) return null
+
+  if (isFarmer) {
+    return (
+      <Page title={t('intentForm.title')} softKeys={{ right: { label: t('common.back') } }}>
+        <p className="u-muted">{t('intentForm.blocked.role')}</p>
+        <p className="u-muted">{t('intentForm.blocked.roleHint')}</p>
+      </Page>
+    )
+  }
 
   // 沒填所在地就歸不到任何看板，後端會回 intent_region_required；
   // 與其讓人填完價格才被退，不如一進來就把人帶去個人檔案

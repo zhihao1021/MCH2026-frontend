@@ -1,4 +1,4 @@
-import type { IntentExclusion, IntentStatus, ProductCategory, QuoteStatus, UserRole } from '../api/types'
+import type { IntentExclusion, IntentStatus, ProductCategory, QuoteStatus, StoreType, UserRole } from '../api/types'
 import type { Translate } from '../i18n'
 
 /**
@@ -19,6 +19,10 @@ export function quoteStatusLabel(t: Translate, status: QuoteStatus): string {
 
 export function intentStatusLabel(t: Translate, status: IntentStatus): string {
   return t(`intentStatus.${status}`)
+}
+
+export function storeTypeLabel(t: Translate, storeType: StoreType): string {
+  return t(`storeType.${storeType}`)
 }
 
 /**

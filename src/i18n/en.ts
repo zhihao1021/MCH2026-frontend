@@ -6,7 +6,7 @@
  */
 export const en = {
   // ---- 共用 ----
-  'app.title': 'Farm Prices',
+  'app.title': 'Happy Farm',
   'common.back': 'Back',
   'common.select': 'Select',
   'common.open': 'Open',
@@ -90,6 +90,7 @@ export const en = {
   'detail.menu.favorites': 'My favorites',
   'detail.menu.newQuote': 'New quote',
   'detail.menu.myQuotes': 'My quotes',
+  'detail.menu.newSupermarketPrice': 'Upload supermarket price',
   'detail.menu.newIntent': 'Set my target price',
   'detail.menu.myIntents': 'My target prices',
   'detail.menu.allProducts': 'All crops',
@@ -137,7 +138,6 @@ export const en = {
   // ---- 身分 / 分類 / 報價狀態 ----
   'roles.consumer': 'Consumer',
   'roles.farmer': 'Farmer',
-  'roles.trader': 'Trader',
   'roles.badge': '{role} view',
   'categories.vegetable': 'Vegetable',
   'categories.fruit': 'Fruit',
@@ -154,6 +154,14 @@ export const en = {
   'quoteSide.buy': 'I’m buying',
   'quoteSide.short.sell': 'Sell',
   'quoteSide.short.buy': 'Buy',
+  'storeType.supermarket': 'Supermarket',
+  'storeType.hypermarket': 'Hypermarket',
+  'storeType.convenience': 'Convenience store',
+  'storeType.wet_market': 'Wet market',
+  'storeType.grocery': 'Grocery store',
+  'storeType.online': 'Online store',
+  'storeType.cooperative': 'Co-op',
+  'storeType.other': 'Other',
 
   // ---- 新增報價 ----
   'quoteForm.title': 'New quote',
@@ -173,6 +181,26 @@ export const en = {
   'quoteForm.toast.quantityPositive': 'Quantity must be greater than 0',
   'quoteForm.toast.submitted': 'Quote posted',
 
+  // ---- Upload supermarket price ----
+  'supermarketPrice.title': 'Upload supermarket price',
+  'supermarketPrice.titleFor': 'Upload a supermarket price for {product}',
+  'supermarketPrice.price': 'Price you saw',
+  'supermarketPrice.packSize': 'Pack size ({unit}, optional)',
+  'supermarketPrice.packSizePlaceholder': 'e.g. 0.5',
+  'supermarketPrice.packSizeHint': 'If the tag says "500g / $3.30", enter 0.5. We work out the price per {unit} for you — no need to do the math.',
+  'supermarketPrice.store': 'Store name',
+  'supermarketPrice.storePlaceholder': 'e.g. Walmart',
+  'supermarketPrice.storeType': 'Store type',
+  'supermarketPrice.storeBranch': 'Branch (optional)',
+  'supermarketPrice.storeBranchPlaceholder': 'e.g. 5th Ave',
+  'supermarketPrice.observedOn': 'Date you saw it',
+  'supermarketPrice.isPromotion': 'This was a promotion',
+  'supermarketPrice.isPromotionHint': 'Promotions are left out of the price board stats, but still show up in the list.',
+  'supermarketPrice.hint': 'This is the real price you saw in a store. It’s public, so others can use it to compare prices.',
+  'supermarketPrice.toast.needStore': 'Enter a store name first',
+  'supermarketPrice.toast.packSizePositive': 'Pack size must be greater than 0',
+  'supermarketPrice.toast.submitted': 'Supermarket price uploaded',
+
   // ---- 期望價（消費者意向）----
   'intentForm.title': 'Set target price',
   'intentForm.titleFor': 'Target price for {product}',
@@ -183,6 +211,8 @@ export const en = {
   'intentForm.floorLine': 'Cost floor {price} / {unit} (from the last {days} days of official prices)',
   'intentForm.hint': 'Counts toward the {region} board. One target per crop every 7 days; a new one replaces the old.',
   'intentForm.nudge': 'Bids below farm cost are treated as invalid demand and farms will not take them. A realistic price is the fastest way to a direct farm offer.',
+  'intentForm.blocked.role': 'Farmer accounts can’t submit a consumer target price.',
+  'intentForm.blocked.roleHint': 'This board is a demand-side signal — farmers can still view it on the crop page as a pricing reference.',
   'intentForm.blocked.region': 'Set your region first so your target price lands on the right board.',
   'intentForm.blocked.regionHint': 'Open your profile and fill in your region, then come back.',
   'intentForm.key.setRegion': 'Set region',
@@ -270,7 +300,7 @@ export const en = {
   'userProfile.distance.route.value': '{distance} ({duration})',
   'map.noTarget': 'This user does not share coordinates, so there is no map or distance. You can ask them directly.',
   'map.needLogin': 'Log in and set your own coordinates to see the map and the distance from you.',
-  'map.needCoords': 'You have not set your own coordinates yet, so the distance cannot be calculated. Add them in your profile, or use “Get current location” there.',
+  'map.needCoords': 'You have not set your own coordinates yet, so the distance cannot be calculated. Add them in your profile.',
   'map.key.setCoords': 'Set coordinates',
   'map.summary.route': 'Driving {distance}',
   'map.caption.route': '{duration} · {compass} of you',
@@ -328,7 +358,7 @@ export const en = {
   'profile.latitudePlaceholder': 'e.g. 23.7027',
   'profile.longitude': 'Longitude (optional)',
   'profile.longitudePlaceholder': 'e.g. 120.4318',
-  'profile.coords.hint': 'With coordinates set, others can see a map and the distance to you. Press the left soft key for “Options → Get current location”.',
+  'profile.coords.hint': 'With coordinates set, others can see a map and the distance to you.',
   'profile.coords.pairRequired': 'Fill in both latitude and longitude, or leave both empty',
   'profile.coords.numeric': 'Coordinates must be numbers, e.g. 23.7027 / 120.4318',
   'profile.coords.latRange': 'Latitude must be between -90 and 90',
@@ -341,12 +371,6 @@ export const en = {
   'profile.visibility.exact': 'Exact address',
   'profile.visibility.private': 'Private',
   'profile.bio': 'About you (optional)',
-  'profile.menu.detect': 'Get current location',
-  'profile.menu.detecting': 'Locating…',
-  'profile.menu.clearCoords': 'Clear coordinates',
-  'profile.toast.detectFailed': 'Could not locate you automatically. Please fill it in.',
-  'profile.toast.detected': 'Estimated location filled in — please check it',
-  'profile.toast.coordsCleared': 'Coordinates cleared. Remember to save.',
 
   // ---- 登入 ----
   'login.title': 'Log in',
@@ -370,7 +394,6 @@ export const en = {
   'login.otp.role.placeholder': 'Choose a role',
   'login.otp.role.consumer': 'Consumer (browse only)',
   'login.otp.role.farmer': 'Farmer (can post quotes)',
-  'login.otp.role.trader': 'Trader (can post quotes)',
   'login.otp.role.hint': 'Your role cannot be changed later, so choose carefully.',
   'login.otp.displayName': 'Display name (optional)',
   'login.otp.displayNamePlaceholder': 'e.g. Ming',
@@ -400,7 +423,7 @@ export const en = {
 
   // ---- 關於 ----
   'about.title': 'About',
-  'about.heading': 'MCH2026',
+  'about.heading': 'Happy Farm',
   'about.intro': 'A Cloud Phone widget for daily farm produce prices.',
   'about.keys': 'D-pad to move, Enter to select, left soft key for options, right soft key to go back.',
   'about.images.heading': 'Image credits',
@@ -422,7 +445,7 @@ export const en = {
   'errors.roleCannotQuote': 'Consumer accounts cannot post quotes. Roles are fixed at sign-up and cannot be changed later — contact support if you picked the wrong one.',
   'errors.quoteNotEditable': 'Withdrawn quotes cannot be edited directly',
   'errors.notQuoteOwner': 'You can only edit your own quotes',
-  'errors.roleRequired': 'Choose a role (consumer / farmer / trader) before continuing. Your code is still valid, no need to request a new one.',
+  'errors.roleRequired': 'Choose a role (consumer / farmer) before continuing. Your code is still valid, no need to request a new one.',
   'errors.otpInvalid': 'Wrong code. Please try again.',
   'errors.otpExpired': 'That code has expired. Request a new one.',
   'errors.otpNotFound': 'Request a code first',
@@ -451,6 +474,11 @@ export const en = {
   'errors.notIntentOwner': 'You can only change your own target prices',
   'errors.notificationNotFound': 'That offer could not be found',
   'errors.notNotificationOwner': 'This offer was not sent to you',
+  'errors.retailObservationFuture': 'The date you saw the price can’t be in the future.',
+  'errors.retailObservationTooOld': 'That date is too far back — you can only backdate up to {count} days.',
+  'errors.retailObservationTooOldGeneric': 'That date is too far back. Please pick a more recent date.',
+  'errors.retailStoreCooldown': 'There’s a cooldown on reporting the same store for the same crop — try again in {count} hours.',
+  'errors.retailStoreCooldownGeneric': 'There’s a cooldown on reporting the same store for the same crop — try again later.',
 } as const
 
 export type MessageKey = keyof typeof en

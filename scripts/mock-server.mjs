@@ -646,6 +646,164 @@ function computeIntentSummary(product, region, locale) {
   }
 }
 
+// ---- 消費者回報的超市零售價（API.md 10；記憶體內，重啟就重置） ----
+
+const STORE_TYPES = [
+  'supermarket',
+  'hypermarket',
+  'convenience',
+  'wet_market',
+  'grocery',
+  'online',
+  'cooperative',
+  'other',
+]
+
+function isStoreTypeValue(value) {
+  return STORE_TYPES.includes(value)
+}
+
+const retailReportsStore = new Map() // id -> 內部零售回報紀錄
+const RETAIL_STORE_COOLDOWN_HOURS = 24
+const RETAIL_MAX_BACKDATE_DAYS = 7
+/** 離群排除倍率護欄：偏離中位數 5 倍以上排除，3 筆樣本起生效；不做 IQR（API.md 10.3）。 */
+const RETAIL_OUTLIER_MULTIPLIER = 5
+const RETAIL_MIN_SAMPLES_FOR_OUTLIER_FILTER = 3
+
+/** 臺／台 視為同一個地區，同 9.1 節的正規化（零售回報的 region 一樣來自 ISO 行政區名）。 */
+function normRetailRegion(r) {
+  return r === null ? null : r.replace(/臺/g, '台').trim()
+}
+
+function normalizeStoreName(name) {
+  return String(name).trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+function todayStr() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function retailReportToOut(report, viewerUserId, locale) {
+  const isOwner = viewerUserId !== undefined && viewerUserId === report.userId
+  return {
+    id: report.id,
+    product_id: report.product.id,
+    observed_price: report.observedPrice.toFixed(2),
+    pack_size: report.packSize === null ? null : report.packSize.toFixed(3),
+    unit_price: report.unitPrice.toFixed(2),
+    currency: report.currency,
+    unit: report.unit,
+    is_promotion: report.isPromotion,
+    store_type: report.storeType,
+    store_name: report.storeName,
+    store_branch: report.storeBranch,
+    country_code: report.countryCode,
+    subdivision_code: report.subdivisionCode,
+    region: report.region,
+    observed_on: report.observedOn,
+    photo_url: report.photoUrl,
+    note: report.note,
+    status: report.status,
+    // 只有本人（含 /me/retail-prices）看得到，公開清單一律是 null（API.md 10.1/10.6）
+    excluded_reason: isOwner ? report.excludedReason : null,
+    reporter: { display_name: report.reporterDisplayName, is_me: isOwner },
+    created_at: report.createdAt,
+  }
+}
+
+/** 找同區域的市場算批發中位數，沒有就退回全國（API.md 10.4）。 */
+function wholesaleMedianFor(product, region, days) {
+  const markets = marketsForProduct(product)
+  const normalized = normRetailRegion(region)
+  const regionMarkets = normalized === null ? [] : markets.filter((mk) => normRetailRegion(mk.region) === normalized)
+  for (const [pool, source] of [[regionMarkets, 'region'], [markets, 'country']]) {
+    if (pool.length === 0) continue
+    const prices = pool.flatMap((mk) => generateSeries(product, mk, days).map((pt) => pt.avg))
+    const m = median(prices)
+    if (m !== null) return { price: m, source }
+  }
+  return { price: null, source: null }
+}
+
+/**
+ * 零售價看板：先篩地區／天數／特價，離群值用 5 倍中位數護欄排除（3 筆樣本起生效），
+ * 不做 IQR——零售價本來就會因通路差距很大，IQR 會把整個通路都當離群值砍掉。
+ */
+function computeRetailSummary(product, params, locale) {
+  const days = params.days ?? 14
+  const includePromotions = params.includePromotions ?? false
+  const normalizedRegion = normRetailRegion(params.region)
+  const cutoff = dateNDaysAgo(days - 1)
+  const all = [...retailReportsStore.values()].filter((r) => {
+    if (r.status !== 'active' || r.product.id !== product.id) return false
+    if (r.observedOn < cutoff) return false
+    if (!includePromotions && r.isPromotion) return false
+    if (params.countryCode !== undefined && r.countryCode !== params.countryCode) return false
+    if (params.subdivisionCode !== undefined && r.subdivisionCode !== params.subdivisionCode) return false
+    if (normalizedRegion !== null && normRetailRegion(r.region) !== normalizedRegion) return false
+    return true
+  })
+
+  const empty = {
+    product: toProductOut(product, locale),
+    region: params.region ?? null,
+    currency: null,
+    unit: null,
+    days,
+    typical_price: null,
+    median: null,
+    min_price: null,
+    max_price: null,
+    q1: null,
+    q3: null,
+    sample_count: 0,
+    submitted_count: all.length,
+    excluded_count: 0,
+    store_count: 0,
+    outlier_filter_active: false,
+    min_samples_for_outlier_filter: RETAIL_MIN_SAMPLES_FOR_OUTLIER_FILTER,
+    exclusions: {},
+    by_store_type: [],
+  }
+  if (all.length === 0) return empty
+
+  const prices = all.map((r) => r.unitPrice).sort((a, b) => a - b)
+  const med = median(prices)
+  let kept = all
+  let outlierFilterActive = false
+  if (all.length >= RETAIL_MIN_SAMPLES_FOR_OUTLIER_FILTER && med !== null && med > 0) {
+    kept = all.filter((r) => r.unitPrice <= med * RETAIL_OUTLIER_MULTIPLIER && r.unitPrice >= med / RETAIL_OUTLIER_MULTIPLIER)
+    outlierFilterActive = true
+  }
+  const excludedCount = all.length - kept.length
+  const keptPrices = kept.map((r) => r.unitPrice).sort((a, b) => a - b)
+  const q1 = quantile(keptPrices, 0.25)
+  const q3 = quantile(keptPrices, 0.75)
+  const fmt = (n) => (n === null ? null : round2(n).toFixed(2))
+  const byStoreType = STORE_TYPES.map((storeType) => {
+    const forType = kept.filter((r) => r.storeType === storeType).map((r) => r.unitPrice).sort((a, b) => a - b)
+    return forType.length === 0 ? null : { store_type: storeType, median: fmt(median(forType)), sample_count: forType.length }
+  }).filter((row) => row !== null)
+
+  return {
+    ...empty,
+    currency: kept[0].currency,
+    unit: kept[0].unit,
+    typical_price: fmt(median(keptPrices)),
+    median: fmt(median(keptPrices)),
+    min_price: fmt(prices[0]),
+    max_price: fmt(prices[prices.length - 1]),
+    q1: fmt(q1),
+    q3: fmt(q3),
+    sample_count: kept.length,
+    excluded_count: excludedCount,
+    store_count: new Set(kept.map((r) => r.storeNameNormalized)).size,
+    outlier_filter_active: outlierFilterActive,
+    exclusions: excludedCount > 0 ? { outlier: excludedCount } : {},
+    by_store_type: byStoreType,
+  }
+}
+
 function sendJson(res, status, body) {
   const text = JSON.stringify(body)
   res.writeHead(status, {
@@ -741,7 +899,7 @@ async function handleRequest(req, res) {
     if (isNewUser) {
       // role_required 這個檢查刻意排在驗證碼比對「之後」但消耗「之前」，
       // 補上 role 用同一組碼直接重試即可，不用重新收簡訊
-      if (body.role === undefined) return sendError(res, 400, 'role_required', '註冊時必須選擇身分：consumer（消費者）/ farmer（小農）/ trader（盤商）')
+      if (body.role === undefined) return sendError(res, 400, 'role_required', '註冊時必須選擇身分：consumer（消費者）/ farmer（小農）')
       // 沒帶 country_code（純 E.164 登入）就從國碼反推；多國共用時取清單第一個
       const countryCode =
         body.country_code ??
@@ -768,7 +926,7 @@ async function handleRequest(req, res) {
         has_location: false,
         contact_phone_public: true,
         is_active: true,
-        can_quote: body.role === 'farmer' || body.role === 'trader',
+        can_quote: body.role === 'farmer',
         created_at: new Date().toISOString(),
         last_login_at: new Date().toISOString(),
       }
@@ -1148,8 +1306,8 @@ async function handleRequest(req, res) {
   if (req.method === 'POST' && path === '/v1/quotes') {
     const user = userFromAuthHeader(req)
     if (!user) return sendError(res, 401, 'invalid_token', 'access token 無效或已過期')
-    if (user.role !== 'farmer' && user.role !== 'trader') {
-      return sendError(res, 403, 'role_cannot_quote', '身分不是小農/盤商，不能報價')
+    if (user.role !== 'farmer') {
+      return sendError(res, 403, 'role_cannot_quote', '身分不是小農，不能報價')
     }
     const body = await readBody(req)
     const product = resolveProduct(body.product_id)
@@ -1259,6 +1417,191 @@ async function handleRequest(req, res) {
       sendJson(res, 200, quoteToOut(quote, user.id))
       return
     }
+  }
+
+  // ---- 消費者回報的超市零售價 ----
+
+  const retailCreateMatch = path.match(/^\/v1\/products\/([^/]+)\/retail-prices$/)
+  if (req.method === 'POST' && retailCreateMatch) {
+    const user = userFromAuthHeader(req)
+    if (!user) return sendError(res, 401, 'invalid_token', 'access token 無效或已過期')
+    const product = resolveProduct(decodeURIComponent(retailCreateMatch[1]))
+    if (!product) return sendError(res, 404, 'product_not_found', '找不到此品項')
+    const body = await readBody(req)
+
+    const observedPrice = Number(body.observed_price)
+    if (!(observedPrice > 0)) return sendError(res, 422, 'validation_error', 'observed_price 必須大於 0')
+    if (!body.store_name || String(body.store_name).trim().length === 0) {
+      return sendError(res, 422, 'validation_error', 'store_name 必填')
+    }
+
+    const observedOn = body.observed_on ?? todayStr()
+    if (observedOn > todayStr()) {
+      return sendError(res, 400, 'retail_observation_future', 'observed_on 不能是未來的日期')
+    }
+    const maxAgeDays = RETAIL_MAX_BACKDATE_DAYS
+    if (observedOn < dateNDaysAgo(maxAgeDays)) {
+      return sendError(res, 400, 'retail_observation_too_old', `observed_on 超過可補登天數（${maxAgeDays} 天）`, {
+        max_age_days: maxAgeDays,
+      })
+    }
+
+    // 冷卻期綁在「同一人 × 同一作物 × 同一店家」，店名正規化後比對（API.md 10.2）
+    const storeNameNormalized = normalizeStoreName(body.store_name)
+    const cooldownMs = RETAIL_STORE_COOLDOWN_HOURS * 3_600_000
+    const recent = [...retailReportsStore.values()].find(
+      (r) =>
+        r.userId === user.id &&
+        r.product.id === product.id &&
+        r.storeNameNormalized === storeNameNormalized &&
+        Date.now() - Date.parse(r.createdAt) < cooldownMs,
+    )
+    if (recent) {
+      const retryAfter = Math.ceil((cooldownMs - (Date.now() - Date.parse(recent.createdAt))) / 1000)
+      return sendError(res, 429, 'retail_store_cooldown', '同一家店同一作物剛回報過，請稍後再試', {
+        retry_after: retryAfter,
+      })
+    }
+
+    const packSize = body.pack_size === undefined || body.pack_size === null ? null : Number(body.pack_size)
+    const unitPrice = packSize !== null && packSize > 0 ? observedPrice / packSize : observedPrice
+
+    const report = {
+      id: randomUUID(),
+      userId: user.id,
+      product: toProductOut(product, locale),
+      observedPrice,
+      packSize,
+      unitPrice,
+      currency: body.currency ?? user.currency ?? 'TWD',
+      unit: body.unit ?? product.default_unit,
+      isPromotion: body.is_promotion ?? false,
+      storeType: isStoreTypeValue(body.store_type) ? body.store_type : 'supermarket',
+      storeName: String(body.store_name).trim(),
+      storeNameNormalized,
+      storeBranch: body.store_branch ?? null,
+      countryCode: user.country_code ?? 'TW',
+      subdivisionCode: user.location?.subdivision_code ?? null,
+      region: user.location?.subdivision_name ?? null,
+      observedOn,
+      photoUrl: body.photo_url ?? null,
+      note: body.note ?? null,
+      status: 'active',
+      // mock 沒有信譽模型／機房 IP 偵測，一律視為有計入（同 intents 的簡化）
+      excludedReason: null,
+      reporterDisplayName: user.display_name,
+      createdAt: new Date().toISOString(),
+    }
+    retailReportsStore.set(report.id, report)
+    sendJson(res, 201, retailReportToOut(report, user.id, locale))
+    return
+  }
+
+  const retailSummaryMatch = path.match(/^\/v1\/products\/([^/]+)\/retail-prices\/summary$/)
+  if (req.method === 'GET' && retailSummaryMatch) {
+    const product = resolveProduct(decodeURIComponent(retailSummaryMatch[1]))
+    if (!product) return sendError(res, 404, 'product_not_found', '找不到此品項')
+    sendJson(
+      res,
+      200,
+      computeRetailSummary(
+        product,
+        {
+          region: url.searchParams.get('region'),
+          subdivisionCode: url.searchParams.get('subdivision_code') ?? undefined,
+          countryCode: url.searchParams.get('country_code') ?? undefined,
+          days: url.searchParams.get('days') ? Number(url.searchParams.get('days')) : undefined,
+          includePromotions: url.searchParams.get('include_promotions') === 'true',
+        },
+        locale,
+      ),
+    )
+    return
+  }
+
+  const retailSpreadMatch = path.match(/^\/v1\/products\/([^/]+)\/retail-prices\/spread$/)
+  if (req.method === 'GET' && retailSpreadMatch) {
+    const product = resolveProduct(decodeURIComponent(retailSpreadMatch[1]))
+    if (!product) return sendError(res, 404, 'product_not_found', '找不到此品項')
+    const region = url.searchParams.get('region')
+    const summary = computeRetailSummary(product, { region, days: 14, includePromotions: false }, locale)
+    const wholesaleDays = 14
+    const wholesale = wholesaleMedianFor(product, region, wholesaleDays)
+    const spread =
+      summary.typical_price !== null && wholesale.price !== null
+        ? Number(summary.typical_price) - wholesale.price
+        : null
+    sendJson(res, 200, {
+      product: toProductOut(product, locale),
+      region,
+      currency: summary.currency,
+      unit: summary.unit,
+      retail_price: summary.typical_price,
+      wholesale_price: wholesale.price === null ? null : round2(wholesale.price).toFixed(2),
+      spread: spread === null ? null : round2(spread).toFixed(2),
+      spread_pct:
+        spread === null || wholesale.price === null || wholesale.price === 0
+          ? null
+          : round2((spread / wholesale.price) * 100).toFixed(2),
+      retail_samples: summary.sample_count,
+      wholesale_days: wholesaleDays,
+      wholesale_source: wholesale.source,
+    })
+    return
+  }
+
+  const retailListMatch = path.match(/^\/v1\/products\/([^/]+)\/retail-prices$/)
+  if (req.method === 'GET' && retailListMatch) {
+    const viewer = userFromAuthHeader(req)
+    const product = resolveProduct(decodeURIComponent(retailListMatch[1]))
+    if (!product) return sendError(res, 404, 'product_not_found', '找不到此品項')
+    const days = url.searchParams.get('days') ? Number(url.searchParams.get('days')) : 14
+    // 跟看板相反，這支預設全收（含特價）
+    const includePromotions = url.searchParams.get('include_promotions') !== 'false'
+    const region = url.searchParams.get('region')
+    const subdivisionCode = url.searchParams.get('subdivision_code')
+    const countryCode = url.searchParams.get('country_code')
+    const storeType = url.searchParams.get('store_type')
+    const normalizedRegion = normRetailRegion(region)
+    const cutoff = dateNDaysAgo(days - 1)
+    let list = [...retailReportsStore.values()].filter((r) => {
+      if (r.status !== 'active' || r.product.id !== product.id) return false
+      if (r.observedOn < cutoff) return false
+      if (!includePromotions && r.isPromotion) return false
+      if (subdivisionCode && r.subdivisionCode !== subdivisionCode) return false
+      if (countryCode && r.countryCode !== countryCode) return false
+      if (normalizedRegion !== null && normRetailRegion(r.region) !== normalizedRegion) return false
+      if (storeType && r.storeType !== storeType) return false
+      return true
+    })
+    list.sort((a, b) => (a.observedOn < b.observedOn ? 1 : -1))
+    const page = paginate(list, url)
+    sendJson(res, 200, { ...page, items: page.items.map((r) => retailReportToOut(r, viewer?.id, locale)) })
+    return
+  }
+
+  if (req.method === 'GET' && path === '/v1/me/retail-prices') {
+    const user = userFromAuthHeader(req)
+    if (!user) return sendError(res, 401, 'invalid_token', 'access token 無效或已過期')
+    const includeWithdrawn = url.searchParams.get('include_withdrawn') === 'true'
+    const list = [...retailReportsStore.values()]
+      .filter((r) => r.userId === user.id && (includeWithdrawn || r.status === 'active'))
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    const page = paginate(list, url)
+    sendJson(res, 200, { ...page, items: page.items.map((r) => retailReportToOut(r, user.id, locale)) })
+    return
+  }
+
+  const myRetailMatch = path.match(/^\/v1\/me\/retail-prices\/([^/]+)$/)
+  if (req.method === 'DELETE' && myRetailMatch) {
+    const user = userFromAuthHeader(req)
+    if (!user) return sendError(res, 401, 'invalid_token', 'access token 無效或已過期')
+    const report = retailReportsStore.get(decodeURIComponent(myRetailMatch[1]))
+    if (!report) return sendError(res, 404, 'retail_report_not_found', '找不到這筆回報')
+    if (report.userId !== user.id) return sendError(res, 403, 'not_retail_report_owner', '只能撤回自己的回報')
+    report.status = 'withdrawn'
+    sendJson(res, 200, retailReportToOut(report, user.id, locale))
+    return
   }
 
   if (req.method !== 'GET') {

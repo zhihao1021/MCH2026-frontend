@@ -19,6 +19,7 @@ import { ProfilePage } from './pages/ProfilePage'
 import { QuoteFormPage } from './pages/QuoteFormPage'
 import { RegionPickerPage } from './pages/RegionPickerPage'
 import { SettingsPage } from './pages/SettingsPage'
+import { SupermarketPriceFormPage } from './pages/SupermarketPriceFormPage'
 import { UserProfilePage } from './pages/UserProfilePage'
 
 /**
@@ -37,6 +38,7 @@ export const router = createHashRouter([
   { path: '/products', element: <ProductListPage /> },
   { path: '/products/:ref', element: <ProductDetailPage /> },
   { path: '/products/:ref/quote', element: <QuoteFormPage /> },
+  { path: '/products/:ref/supermarket-price', element: <SupermarketPriceFormPage /> },
   { path: '/products/:ref/intent', element: <IntentFormPage /> },
   { path: '/quotes/mine', element: <MyQuotesPage /> },
   { path: '/intents/mine', element: <MyIntentsPage /> },

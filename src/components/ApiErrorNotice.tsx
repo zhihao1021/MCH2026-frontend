@@ -32,12 +32,19 @@ const MESSAGES: Record<string, MessageKey> = {
   not_intent_owner: 'errors.notIntentOwner',
   notification_not_found: 'errors.notificationNotFound',
   not_notification_owner: 'errors.notNotificationOwner',
+  retail_observation_future: 'errors.retailObservationFuture',
 }
 
 /** 429 的 retry_after 是秒數；意向價冷卻期以天計（預設 7 天），換算成天再顯示，秒數對使用者沒意義。 */
 function retryAfterDays(error: ApiError): number | null {
   const seconds = (error.details as { retry_after?: number } | undefined)?.retry_after
   return typeof seconds === 'number' && seconds > 0 ? Math.max(1, Math.ceil(seconds / 86_400)) : null
+}
+
+/** 零售回報的店家冷卻期以小時計（預設 24 小時），同樣道理換算成小時。 */
+function retryAfterHours(error: ApiError): number | null {
+  const seconds = (error.details as { retry_after?: number } | undefined)?.retry_after
+  return typeof seconds === 'number' && seconds > 0 ? Math.max(1, Math.ceil(seconds / 3_600)) : null
 }
 
 function messageFor(t: Translate, error: ApiError): string {
@@ -55,6 +62,16 @@ function messageFor(t: Translate, error: ApiError): string {
     // details 帶 floor_price，後端 message 已含提示語；有底線價就把數字講出來
     const floor = (error.details as { floor_price?: string } | undefined)?.floor_price
     return floor === undefined ? t('errors.intentBelowFloor') : t('errors.intentBelowFloorWithPrice', { price: floor })
+  }
+  if (error.code === 'retail_store_cooldown') {
+    const hours = retryAfterHours(error)
+    return hours === null ? t('errors.retailStoreCooldownGeneric') : t('errors.retailStoreCooldown', { count: hours })
+  }
+  if (error.code === 'retail_observation_too_old') {
+    const maxAgeDays = (error.details as { max_age_days?: number } | undefined)?.max_age_days
+    return maxAgeDays === undefined
+      ? t('errors.retailObservationTooOldGeneric')
+      : t('errors.retailObservationTooOld', { count: maxAgeDays })
   }
   const key = MESSAGES[error.code]
   // 後端的 message 是中文的，沒對應到 key 時至少還有東西可看

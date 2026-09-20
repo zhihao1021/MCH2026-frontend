@@ -36,7 +36,7 @@ export function HomePage() {
     ...(auth.user !== null
       ? [
           { id: 'intents', title: t('home.intents.title'), subtitle: t('home.intents.subtitle') },
-          { id: 'notifications', title: t('home.notifications.title'), subtitle: t('home.notifications.subtitle') },
+          // { id: 'notifications', title: t('home.notifications.title'), subtitle: t('home.notifications.subtitle') },
         ]
       : []),
   ]

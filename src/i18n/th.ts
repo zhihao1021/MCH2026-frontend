@@ -3,7 +3,7 @@ import type { Messages } from './en'
 /** พจนานุกรมภาษาไทย ขาด key ใดไปจะคอมไพล์ไม่ผ่าน (type เป็น Messages) จึงไม่มีทางแปลตกหล่นแบบเงียบๆ */
 export const th: Messages = {
   // ---- ทั่วไป ----
-  'app.title': 'ราคาผลผลิตเกษตร',
+  'app.title': 'Happy Farm',
   'common.back': 'ย้อนกลับ',
   'common.select': 'เลือก',
   'common.open': 'เปิด',
@@ -87,6 +87,7 @@ export const th: Messages = {
   'detail.menu.favorites': 'รายการโปรดของฉัน',
   'detail.menu.newQuote': 'ประกาศขายใหม่',
   'detail.menu.myQuotes': 'ประกาศขายของฉัน',
+  'detail.menu.newSupermarketPrice': 'อัปโหลดราคาจากซูเปอร์มาร์เก็ต',
   'detail.menu.newIntent': 'ตั้งราคาเป้าหมายของฉัน',
   'detail.menu.myIntents': 'ราคาเป้าหมายของฉัน',
   'detail.menu.allProducts': 'พืชผลทั้งหมด',
@@ -134,7 +135,6 @@ export const th: Messages = {
   // ---- บทบาท / หมวดหมู่ / สถานะประกาศขาย ----
   'roles.consumer': 'ผู้บริโภค',
   'roles.farmer': 'เกษตรกร',
-  'roles.trader': 'พ่อค้าคนกลาง',
   'roles.badge': 'มุมมอง{role}',
   'categories.vegetable': 'ผัก',
   'categories.fruit': 'ผลไม้',
@@ -151,6 +151,14 @@ export const th: Messages = {
   'quoteSide.buy': 'ฉันต้องการซื้อ',
   'quoteSide.short.sell': 'ขาย',
   'quoteSide.short.buy': 'ซื้อ',
+  'storeType.supermarket': 'ซูเปอร์มาร์เก็ต',
+  'storeType.hypermarket': 'ไฮเปอร์มาร์เก็ต',
+  'storeType.convenience': 'ร้านสะดวกซื้อ',
+  'storeType.wet_market': 'ตลาดสด',
+  'storeType.grocery': 'ร้านขายของชำ',
+  'storeType.online': 'ร้านค้าออนไลน์',
+  'storeType.cooperative': 'สหกรณ์การเกษตร',
+  'storeType.other': 'อื่นๆ',
 
   // ---- ประกาศขายใหม่ ----
   'quoteForm.title': 'ประกาศขายใหม่',
@@ -170,6 +178,26 @@ export const th: Messages = {
   'quoteForm.toast.quantityPositive': 'ปริมาณต้องมากกว่า 0',
   'quoteForm.toast.submitted': 'ประกาศขายเรียบร้อยแล้ว',
 
+  // ---- อัปโหลดราคาจากซูเปอร์มาร์เก็ต ----
+  'supermarketPrice.title': 'อัปโหลดราคาจากซูเปอร์มาร์เก็ต',
+  'supermarketPrice.titleFor': 'อัปโหลดราคาซูเปอร์มาร์เก็ตสำหรับ {product}',
+  'supermarketPrice.price': 'ราคาที่เห็น',
+  'supermarketPrice.packSize': 'ขนาดบรรจุ ({unit}, ไม่บังคับ)',
+  'supermarketPrice.packSizePlaceholder': 'เช่น 0.5',
+  'supermarketPrice.packSizeHint': 'ป้ายเขียน "500 กรัม / 33 บาท" ให้ใส่ 0.5 ระบบจะคำนวณราคาต่อ {unit} ให้เอง ไม่ต้องคิดเลขเอง',
+  'supermarketPrice.store': 'ชื่อร้าน',
+  'supermarketPrice.storePlaceholder': 'เช่น บิ๊กซี',
+  'supermarketPrice.storeType': 'ประเภทร้าน',
+  'supermarketPrice.storeBranch': 'สาขา (ไม่บังคับ)',
+  'supermarketPrice.storeBranchPlaceholder': 'เช่น สาขาลาดพร้าว',
+  'supermarketPrice.observedOn': 'วันที่เห็นราคา',
+  'supermarketPrice.isPromotion': 'นี่คือราคาโปรโมชั่น',
+  'supermarketPrice.isPromotionHint': 'ราคาโปรโมชั่นจะไม่ถูกนำไปคำนวณสถิติของกระดานราคา แต่จะยังแสดงในรายการ',
+  'supermarketPrice.hint': 'นี่คือราคาจริงที่คุณเห็นในร้านค้า จะเปิดเผยให้ทุกคนใช้เปรียบเทียบราคา',
+  'supermarketPrice.toast.needStore': 'กรุณาใส่ชื่อร้านก่อน',
+  'supermarketPrice.toast.packSizePositive': 'ขนาดบรรจุต้องมากกว่า 0',
+  'supermarketPrice.toast.submitted': 'อัปโหลดราคาซูเปอร์มาร์เก็ตแล้ว',
+
   // ---- ราคาเป้าหมาย (ความต้องการของผู้บริโภค) ----
   'intentForm.title': 'ตั้งราคาเป้าหมาย',
   'intentForm.titleFor': 'ราคาเป้าหมายสำหรับ {product}',
@@ -180,6 +208,8 @@ export const th: Messages = {
   'intentForm.floorLine': 'ต้นทุนขั้นต่ำ {price} / {unit} (คำนวณจากราคาทางการ {days} วันล่าสุด)',
   'intentForm.hint': 'จะถูกนับรวมในกระดาน {region} ตั้งราคาเป้าหมายได้พืชผลละ 1 ครั้งทุก 7 วัน ราคาใหม่จะแทนที่ราคาเดิม',
   'intentForm.nudge': 'ราคาที่ต่ำกว่าต้นทุนเกษตรกรจะถือเป็นความต้องการที่ใช้ไม่ได้ และเกษตรกรจะไม่รับ ราคาที่สมเหตุสมผลคือทางที่เร็วที่สุดสู่ข้อเสนอจากแหล่งผลิตโดยตรง',
+  'intentForm.blocked.role': 'บัญชีนี้เป็นเกษตรกร ไม่สามารถส่งราคาที่ผู้บริโภคต้องการได้',
+  'intentForm.blocked.roleHint': 'ราคานี้เป็นสัญญาณฝั่งความต้องการซื้อ เกษตรกรยังดูกระดานนี้ในหน้าพืชผลเพื่อใช้ตั้งราคาได้',
   'intentForm.blocked.region': 'กรุณาตั้งพื้นที่ของคุณก่อน เพื่อให้ราคาเป้าหมายไปอยู่ในกระดานที่ถูกต้อง',
   'intentForm.blocked.regionHint': 'เปิดโปรไฟล์ของคุณแล้วกรอกพื้นที่ จากนั้นกลับมาที่นี่',
   'intentForm.key.setRegion': 'ตั้งพื้นที่',
@@ -267,7 +297,7 @@ export const th: Messages = {
   'userProfile.distance.route.value': '{distance} ({duration})',
   'map.noTarget': 'ผู้ใช้รายนี้ไม่ได้แชร์พิกัด จึงไม่มีแผนที่หรือระยะทางให้ดู คุณสามารถสอบถามโดยตรงได้',
   'map.needLogin': 'เข้าสู่ระบบและตั้งพิกัดของคุณเองเพื่อดูแผนที่และระยะทางจากคุณ',
-  'map.needCoords': 'คุณยังไม่ได้ตั้งพิกัดของตัวเอง จึงคำนวณระยะทางไม่ได้ เพิ่มพิกัดในโปรไฟล์ของคุณ หรือใช้ "รับตำแหน่งปัจจุบัน" ที่นั่น',
+  'map.needCoords': 'คุณยังไม่ได้ตั้งพิกัดของตัวเอง จึงคำนวณระยะทางไม่ได้ เพิ่มพิกัดในโปรไฟล์ของคุณ',
   'map.key.setCoords': 'ตั้งพิกัด',
   'map.summary.route': 'ระยะขับรถ {distance}',
   'map.caption.route': '{duration} · ทิศ{compass}จากคุณ',
@@ -325,7 +355,7 @@ export const th: Messages = {
   'profile.latitudePlaceholder': 'เช่น 23.7027',
   'profile.longitude': 'ลองจิจูด (ไม่บังคับ)',
   'profile.longitudePlaceholder': 'เช่น 120.4318',
-  'profile.coords.hint': 'เมื่อตั้งพิกัดแล้ว คนอื่นจะเห็นแผนที่และระยะทางในโปรไฟล์ของคุณ กดปุ่มซอฟต์ซ้ายเพื่อ "ตัวเลือก → รับตำแหน่งปัจจุบัน"',
+  'profile.coords.hint': 'เมื่อตั้งพิกัดแล้ว คนอื่นจะเห็นแผนที่และระยะทางในโปรไฟล์ของคุณ',
   'profile.coords.pairRequired': 'กรอกทั้งละติจูดและลองจิจูด หรือเว้นว่างทั้งคู่',
   'profile.coords.numeric': 'พิกัดต้องเป็นตัวเลข เช่น 23.7027 / 120.4318',
   'profile.coords.latRange': 'ละติจูดต้องอยู่ระหว่าง -90 ถึง 90',
@@ -338,12 +368,6 @@ export const th: Messages = {
   'profile.visibility.exact': 'ที่อยู่ที่แน่นอน',
   'profile.visibility.private': 'ส่วนตัว',
   'profile.bio': 'เกี่ยวกับคุณ (ไม่บังคับ)',
-  'profile.menu.detect': 'รับตำแหน่งปัจจุบัน',
-  'profile.menu.detecting': 'กำลังระบุตำแหน่ง…',
-  'profile.menu.clearCoords': 'ล้างพิกัด',
-  'profile.toast.detectFailed': 'ไม่สามารถระบุตำแหน่งอัตโนมัติได้ กรุณากรอกเอง',
-  'profile.toast.detected': 'กรอกตำแหน่งโดยประมาณให้แล้ว กรุณาตรวจสอบ',
-  'profile.toast.coordsCleared': 'ล้างพิกัดแล้ว อย่าลืมบันทึก',
 
   // ---- เข้าสู่ระบบ ----
   'login.title': 'เข้าสู่ระบบ',
@@ -367,7 +391,6 @@ export const th: Messages = {
   'login.otp.role.placeholder': 'เลือกบทบาท',
   'login.otp.role.consumer': 'ผู้บริโภค (ดูอย่างเดียว)',
   'login.otp.role.farmer': 'เกษตรกร (ประกาศขายได้)',
-  'login.otp.role.trader': 'พ่อค้าคนกลาง (ประกาศขายได้)',
   'login.otp.role.hint': 'บทบาทของคุณไม่สามารถเปลี่ยนแปลงได้ภายหลัง กรุณาเลือกให้รอบคอบ',
   'login.otp.displayName': 'ชื่อที่แสดง (ไม่บังคับ)',
   'login.otp.displayNamePlaceholder': 'เช่น หมิง',
@@ -397,7 +420,7 @@ export const th: Messages = {
 
   // ---- เกี่ยวกับ ----
   'about.title': 'เกี่ยวกับ',
-  'about.heading': 'MCH2026',
+  'about.heading': 'Happy Farm',
   'about.intro': 'วิดเจ็ต Cloud Phone สำหรับราคาผลผลิตเกษตรประจำวัน',
   'about.keys': 'ใช้ปุ่มทิศทางเพื่อเลื่อน กด Enter เพื่อเลือก ปุ่มซอฟต์ซ้ายสำหรับตัวเลือก ปุ่มซอฟต์ขวาเพื่อย้อนกลับ',
   'about.images.heading': 'เครดิตภาพ',
@@ -419,7 +442,7 @@ export const th: Messages = {
   'errors.roleCannotQuote': 'บัญชีผู้บริโภคไม่สามารถประกาศขายได้ บทบาทถูกกำหนดตายตัวตั้งแต่สมัครสมาชิกและเปลี่ยนแปลงภายหลังไม่ได้ — ติดต่อฝ่ายสนับสนุนหากเลือกผิด',
   'errors.quoteNotEditable': 'ประกาศขายที่ถอนแล้วไม่สามารถแก้ไขได้โดยตรง',
   'errors.notQuoteOwner': 'คุณแก้ไขได้เฉพาะประกาศขายของตัวเองเท่านั้น',
-  'errors.roleRequired': 'กรุณาเลือกบทบาท (ผู้บริโภค / เกษตรกร / พ่อค้าคนกลาง) ก่อนดำเนินการต่อ รหัสของคุณยังใช้ได้ ไม่ต้องขอใหม่',
+  'errors.roleRequired': 'กรุณาเลือกบทบาท (ผู้บริโภค / เกษตรกร) ก่อนดำเนินการต่อ รหัสของคุณยังใช้ได้ ไม่ต้องขอใหม่',
   'errors.otpInvalid': 'รหัสไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง',
   'errors.otpExpired': 'รหัสหมดอายุแล้ว กรุณาขอรหัสใหม่',
   'errors.otpNotFound': 'กรุณาขอรหัสก่อน',
@@ -448,4 +471,9 @@ export const th: Messages = {
   'errors.notIntentOwner': 'คุณเปลี่ยนได้เฉพาะราคาเป้าหมายของตัวเองเท่านั้น',
   'errors.notificationNotFound': 'ไม่พบข้อเสนอนี้',
   'errors.notNotificationOwner': 'ข้อเสนอนี้ไม่ได้ส่งถึงคุณ',
+  'errors.retailObservationFuture': 'วันที่เห็นราคาต้องไม่ใช่วันที่ในอนาคต',
+  'errors.retailObservationTooOld': 'วันที่เห็นราคาเก่าเกินไป บันทึกย้อนหลังได้ไม่เกิน {count} วัน',
+  'errors.retailObservationTooOldGeneric': 'วันที่เห็นราคาเก่าเกินไป กรุณาเลือกวันที่ใหม่กว่านี้',
+  'errors.retailStoreCooldown': 'การรายงานร้านเดิมสำหรับพืชผลชนิดเดิมมีระยะเวลารอ กรุณาลองใหม่ใน {count} ชั่วโมง',
+  'errors.retailStoreCooldownGeneric': 'การรายงานร้านเดิมสำหรับพืชผลชนิดเดิมมีระยะเวลารอ กรุณาลองใหม่ภายหลัง',
 }

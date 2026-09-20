@@ -1,5 +1,6 @@
 import type { CountryOut } from '../api/types'
 import type { MessageKey } from '../i18n'
+import { localizedGeoName, type Locale } from '../i18n/locale'
 import { readJSON } from './storage'
 
 /**
@@ -106,6 +107,6 @@ export function filterCountries(countries: CountryOut[], query: string): Country
 }
 
 /** 表單裡顯示的國家標籤：「日本 (+81)」。 */
-export function countryLabel(country: CountryOut): string {
-  return `${country.name} (+${country.dialing_code})`
+export function countryLabel(country: CountryOut, locale: Locale): string {
+  return `${localizedGeoName(locale, country.name, country.name_en)} (+${country.dialing_code})`
 }

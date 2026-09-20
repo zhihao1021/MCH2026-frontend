@@ -103,3 +103,13 @@ export function setRuntimeLocale(locale: Locale, options: { persist?: boolean } 
 export function intlLocale(locale: Locale = current): string {
   return locale
 }
+
+/**
+ * 國家／行政區資料（API.md 6.1、6.3）只有 `name`（當地語言，通常是中文）跟
+ * `name_en` 兩種名稱可選，不像作物名稱是後端依 Accept-Language 解析好的。
+ * 介面語系是英文就用 `name_en`，其餘語系（含日文、泰文）目前只能退回 `name`——
+ * 這正是「英文版出現中文」這類回報的根源：呼叫端如果直接印 `name` 就永遠是中文。
+ */
+export function localizedGeoName(locale: Locale, name: string, nameEn: string): string {
+  return locale === 'en' ? nameEn : name
+}
