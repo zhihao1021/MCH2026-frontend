@@ -1,3 +1,5 @@
+@use 'mixins' as *;
+
 .form {
   &__field {
     margin-bottom: 12px;
@@ -28,6 +30,25 @@
       border-color: var(--c-accent);
       box-shadow: 0 0 0 2px var(--c-accent);
     }
+  }
+
+  // 按下去會開選擇器的欄位（例如國家）：長得跟輸入框一樣，但是 <button>
+  &__picker {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    text-align: left;
+    cursor: pointer;
+
+    > span:first-child {
+      @include truncate;
+    }
+  }
+
+  &__picker-chevron {
+    flex: 0 0 auto;
+    color: var(--c-muted);
   }
 
   // 由身分決定、不可改的欄位（例如報價方向），排得跟輸入框一樣高但不做成輸入框

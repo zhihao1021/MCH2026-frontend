@@ -10,12 +10,14 @@ import { useApiAction } from '../hooks/useApi'
 import { useAuth } from '../hooks/useAuth'
 import { useT } from '../i18n'
 
-const COUNTRY_CODE = 'TW'
-
 export function LoginOtpPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const phone = searchParams.get('phone')
+  // 登入頁選的國家；沒有的話（例如舊連結）就不帶，讓後端依 E.164 判斷
+  const countryCode = searchParams.get('country') ?? undefined
+  // 顯示用的是後端遮罩過的號碼（API.md 建議 #8），原始號碼只拿來 verify / resend
+  const maskedPhone = searchParams.get('masked') ?? phone
   const returnTo = searchParams.get('returnTo') ?? '/'
   const initialRetryAfter = Number(searchParams.get('retryAfter') ?? 60)
   // request 當下的註冊狀態；role_required 是保險絲，理論上不該觸發
@@ -29,9 +31,9 @@ export function LoginOtpPage() {
   const [displayName, setDisplayName] = useState('')
   const [retryAfter, setRetryAfter] = useState(initialRetryAfter)
   const verify = useApiAction((c: string, r?: UserRole, name?: string) =>
-    verifyOtp(phone ?? '', c, COUNTRY_CODE, r, name),
+    verifyOtp(phone ?? '', c, countryCode, r, name),
   )
-  const resend = useApiAction(() => requestOtp(phone ?? '', COUNTRY_CODE))
+  const resend = useApiAction(() => requestOtp(phone ?? '', countryCode))
 
   useEffect(() => {
     if (phone === null) navigate('/login', { replace: true })
@@ -90,7 +92,7 @@ export function LoginOtpPage() {
       }}
     >
       <div className="form">
-        <p className="u-muted">{t('login.otp.sentTo', { phone })}</p>
+        <p className="u-muted">{t('login.otp.sentTo', { phone: maskedPhone ?? '' })}</p>
         <div className="form__field">
           <label className="form__label" htmlFor="otp">
             {t('login.otp.code')}

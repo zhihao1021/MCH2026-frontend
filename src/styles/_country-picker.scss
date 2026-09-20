@@ -1,0 +1,33 @@
+/// 全螢幕的國家選擇器（登入頁、個人資料頁共用）
+.country-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--softkey-h);
+  background: var(--c-bg);
+  color: var(--c-fg);
+
+  &__title {
+    flex: 0 0 auto;
+    padding: 4px var(--screen-margin);
+    font-size: var(--fs-footnote);
+    color: var(--c-muted);
+    border-bottom: 1px solid var(--c-line);
+  }
+
+  &__search {
+    flex: 0 0 auto;
+    padding: 4px var(--screen-margin);
+    border-bottom: 1px solid var(--c-line);
+  }
+
+  // 只有清單會捲，搜尋框固定在上方
+  &__list {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+}

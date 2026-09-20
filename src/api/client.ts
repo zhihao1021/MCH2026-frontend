@@ -59,10 +59,12 @@ export async function apiFetch<T>(
   init?: RequestInit & { auth?: boolean },
 ): Promise<T> {
   const { auth = false, headers, ...rest } = init ?? {}
+  const locale = getLocale()
   const baseHeaders: Record<string, string> = {
     'Content-Type': 'application/json',
     // 品項名稱的語系由後端解析（API.md 2.3）：帶標頭就不必每支 API 都塞 ?locale=
-    'Accept-Language': getLocale(),
+    // 明確加 en 當退回選項：後端找不到目前語系的品項名稱時退英文，而不是任意語系
+    'Accept-Language': locale === 'en' ? 'en' : `${locale}, en;q=0.8`,
     ...(headers as Record<string, string> | undefined),
   }
 

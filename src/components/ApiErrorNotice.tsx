@@ -19,6 +19,8 @@ const MESSAGES: Record<string, MessageKey> = {
   otp_not_found: 'errors.otpNotFound',
   otp_too_many_attempts: 'errors.otpTooManyAttempts',
   otp_hourly_limit: 'errors.otpHourlyLimit',
+  invalid_phone: 'errors.phoneInvalid',
+  unsupported_country: 'errors.unsupportedCountry',
   favorite_not_found: 'errors.favoriteNotFound',
   favorite_limit_reached: 'errors.favoriteLimit',
   token_expired: 'errors.sessionExpired',

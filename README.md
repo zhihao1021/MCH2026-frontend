@@ -149,6 +149,14 @@ npm run lint
 - **定位不用 `navigator.geolocation`**：遠端渲染下拿到的是 CloudMosa 機房的座標。
   改打 `POST /v1/me/location/detect`（後端做 IP 反查），且結果只是建議值——
   個人檔案的座標欄位一定要能手動改。
+- **國家清單不寫死、電話只做結構檢查**：登入頁與個人資料頁的國家選擇器
+  （`CountryPicker`）吃 `GET /v1/geo/countries`（242 國，已依請求語系的國名排序，
+  API.md 6.1），前端只做打字過濾（國名／英文名／ISO 國碼／撥號碼），不重排、不做 A–Z 索引。
+  電話號碼的精確規則交給後端的 libphonenumber（`invalid_phone`），前端 `lib/phone.ts`
+  只擋明顯打錯的：字元、長度、`+` 開頭但國碼對不到任何國家——libphonenumber-js
+  光 metadata 就比整個 widget 還大。輸入 `+81…` 這種完整號碼時選擇器會自動切到對應國家，
+  送出的 `country_code` 與畫面一致；`country_code` 會一路帶到 OTP 頁給 verify／resend 用。
+  國家選擇器做成 overlay 而非獨立路由，是為了不讓已填的欄位因換頁而消失。
 - **字級用 pt**：沿用官方 Design Guide 的單位，方便對照文件調整。
 - **SCSS 只負責拆檔、巢狀與 mixin，顏色尺寸仍是 CSS custom properties**：
   螢幕級距與深色模式要在 runtime 由 media query 覆寫，SCSS 變數做不到。

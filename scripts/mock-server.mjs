@@ -67,21 +67,56 @@ const TW_SUBDIVISIONS = [
   { code: 'TW-YUN', name: '雲林縣', name_en: 'Yunlin' },
 ]
 
-const COUNTRIES = [
-  {
-    code: 'TW',
-    name: '臺灣',
-    name_en: 'Taiwan',
-    dialing_code: '886',
-    currency: 'TWD',
-    default_locale: 'zh-Hant',
-    default_timezone: 'Asia/Taipei',
+// 真後端有 242 國（API.md 6.1）；mock 只放一小撮，足夠測國碼選擇器的搜尋與各國電話格式。
+// 只有 TW 有行政區種子資料，其餘 has_subdivision_data 一律 false 讓 profile 表單走自由輸入。
+function country(code, name, name_en, dialing_code, currency, default_locale, default_timezone, subdivision_label, extra = {}) {
+  return {
+    code,
+    name,
+    name_en,
+    dialing_code,
+    currency,
+    default_locale,
+    default_timezone,
     unit_system: 'metric',
-    subdivision_label: '縣市',
-    postal_code_example: '100',
-    has_subdivision_data: true,
-  },
+    subdivision_label,
+    postal_code_example: null,
+    has_subdivision_data: false,
+    ...extra,
+  }
+}
+
+const COUNTRIES = [
+  country('TW', '臺灣', 'Taiwan', '886', 'TWD', 'zh-Hant', 'Asia/Taipei', '縣市', { postal_code_example: '100', has_subdivision_data: true }),
+  country('JP', '日本', 'Japan', '81', 'JPY', 'ja', 'Asia/Tokyo', '都道府県'),
+  country('KR', '南韓', 'South Korea', '82', 'KRW', 'ko', 'Asia/Seoul', '道'),
+  country('CN', '中國', 'China', '86', 'CNY', 'zh-Hans', 'Asia/Shanghai', '省'),
+  country('HK', '香港', 'Hong Kong', '852', 'HKD', 'zh-Hant', 'Asia/Hong_Kong', '區'),
+  country('SG', '新加坡', 'Singapore', '65', 'SGD', 'en', 'Asia/Singapore', 'District'),
+  country('MY', '馬來西亞', 'Malaysia', '60', 'MYR', 'ms', 'Asia/Kuala_Lumpur', 'State'),
+  country('TH', '泰國', 'Thailand', '66', 'THB', 'th', 'Asia/Bangkok', 'Province'),
+  country('VN', '越南', 'Vietnam', '84', 'VND', 'vi', 'Asia/Ho_Chi_Minh', 'Province'),
+  country('PH', '菲律賓', 'Philippines', '63', 'PHP', 'en', 'Asia/Manila', 'Province'),
+  country('ID', '印尼', 'Indonesia', '62', 'IDR', 'id', 'Asia/Jakarta', 'Province'),
+  country('IN', '印度', 'India', '91', 'INR', 'hi', 'Asia/Kolkata', 'State'),
+  country('AU', '澳洲', 'Australia', '61', 'AUD', 'en', 'Australia/Sydney', 'State'),
+  country('NZ', '紐西蘭', 'New Zealand', '64', 'NZD', 'en', 'Pacific/Auckland', 'Region'),
+  country('US', '美國', 'United States', '1', 'USD', 'en', 'America/New_York', 'State', { unit_system: 'imperial' }),
+  country('CA', '加拿大', 'Canada', '1', 'CAD', 'en', 'America/Toronto', 'Province'),
+  country('GB', '英國', 'United Kingdom', '44', 'GBP', 'en', 'Europe/London', 'County'),
+  country('DE', '德國', 'Germany', '49', 'EUR', 'de', 'Europe/Berlin', 'Land'),
+  country('FR', '法國', 'France', '33', 'EUR', 'fr', 'Europe/Paris', 'Région'),
+  country('IT', '義大利', 'Italy', '39', 'EUR', 'it', 'Europe/Rome', 'Regione'),
+  country('ES', '西班牙', 'Spain', '34', 'EUR', 'es', 'Europe/Madrid', 'Comunidad'),
+  country('BR', '巴西', 'Brazil', '55', 'BRL', 'pt', 'America/Sao_Paulo', 'Estado'),
+  country('UG', '烏干達', 'Uganda', '256', 'UGX', 'en', 'Africa/Kampala', 'Region'),
 ]
+
+/** 對齊真後端：依請求語系的國名排序，可直接餵給下拉選單（API.md 6.1）。 */
+function countriesForLocale(locale) {
+  const key = locale === 'en' ? 'name_en' : 'name'
+  return [...COUNTRIES].sort((a, b) => a[key].localeCompare(b[key], locale === 'en' ? 'en' : 'zh-Hant'))
+}
 
 const SOURCES = [
   {
@@ -110,9 +145,24 @@ const usersByPhone = new Map() // normalized phone -> UserOut
 const accessTokens = new Map() // token -> { userId, expiresAt }
 const refreshTokens = new Map() // token -> { userId }
 
-function normalizePhone(phone, countryCode) {
-  if (phone.startsWith('+')) return phone
-  if (countryCode === 'TW' && phone.startsWith('0')) return `+886${phone.slice(1)}`
+/**
+ * 對齊 API.md 3.1：接受本地格式（需配 country_code）或 E.164。
+ * 真後端用 libphonenumber 驗到各國規則；mock 只做結構檢查，回傳 E.164 或 null（= invalid_phone）。
+ */
+function normalizePhone(rawPhone, countryCode) {
+  let phone = String(rawPhone ?? '').replace(/[\s\-().]/g, '')
+  if (phone.startsWith('00')) phone = `+${phone.slice(2)}`
+  if (!/^\+?\d+$/.test(phone)) return null
+
+  if (!phone.startsWith('+')) {
+    const country = findCountry(String(countryCode ?? '').toUpperCase())
+    if (!country) return null
+    // 去 trunk 0 再接國碼；真後端會依國家決定（義大利要保留），mock 一律去掉
+    phone = `+${country.dialing_code}${phone.replace(/^0/, '')}`
+  }
+  const digits = phone.length - 1
+  if (digits < 7 || digits > 15) return null
+  if (!COUNTRIES.some((c) => phone.slice(1).startsWith(c.dialing_code))) return null
   return phone
 }
 
@@ -631,7 +681,8 @@ async function handleRequest(req, res) {
 
   if (req.method === 'POST' && path === '/v1/auth/otp/request') {
     const body = await readBody(req)
-    const phone = normalizePhone(String(body.phone ?? ''), body.country_code)
+    const phone = normalizePhone(body.phone, body.country_code)
+    if (phone === null) return sendError(res, 400, 'invalid_phone', '手機號碼格式不正確')
     const code = '123456' // mock 固定驗證碼，方便開發時直接看 debug_code 帶入
     const expiresAt = Date.now() + OTP_TTL_MS
     otpStore.set(phone, {
@@ -652,7 +703,8 @@ async function handleRequest(req, res) {
 
   if (req.method === 'POST' && path === '/v1/auth/otp/verify') {
     const body = await readBody(req)
-    const phone = normalizePhone(String(body.phone ?? ''), body.country_code)
+    const phone = normalizePhone(body.phone, body.country_code)
+    if (phone === null) return sendError(res, 400, 'invalid_phone', '手機號碼格式不正確')
     const entry = otpStore.get(phone)
     if (!entry) return sendError(res, 401, 'otp_not_found', '尚未索取驗證碼')
     if (entry.expiresAt < Date.now()) return sendError(res, 401, 'otp_expired', '驗證碼已過期')
@@ -667,7 +719,12 @@ async function handleRequest(req, res) {
       // role_required 這個檢查刻意排在驗證碼比對「之後」但消耗「之前」，
       // 補上 role 用同一組碼直接重試即可，不用重新收簡訊
       if (body.role === undefined) return sendError(res, 400, 'role_required', '註冊時必須選擇身分：consumer（消費者）/ farmer（小農）/ trader（盤商）')
-      const countryCode = body.country_code ?? 'TW'
+      // 沒帶 country_code（純 E.164 登入）就從國碼反推；多國共用時取清單第一個
+      const countryCode =
+        body.country_code ??
+        COUNTRIES.filter((c) => phone.slice(1).startsWith(c.dialing_code))
+          .sort((a, b) => b.dialing_code.length - a.dialing_code.length)[0]?.code ??
+        'TW'
       user = {
         id: randomUUID(),
         phone,
@@ -756,7 +813,22 @@ async function handleRequest(req, res) {
           fields: [{ loc: ['body', 'country_code'], msg: 'Field required' }],
         })
       }
-      user.location = buildLocation(body.country_code, { ...body, hasData: true })
+      const country = findCountry(body.country_code.toUpperCase())
+      if (!country) {
+        return sendError(res, 422, 'validation_error', 'Request validation failed', {
+          fields: [{ loc: ['body', 'country_code'], msg: '尚未支援的國家代碼' }],
+        })
+      }
+      if (body.subdivision_code && !country.has_subdivision_data) {
+        return sendError(res, 422, 'validation_error', 'Request validation failed', {
+          fields: [{ loc: ['body', 'subdivision_code'], msg: '此國家沒有行政區清單，請改用自由輸入的 locality' }],
+        })
+      }
+      // 換了國家，幣別與單位制跟著變（使用者沒有明確設定過的話），API.md 4.5
+      user.country_code = country.code
+      user.currency = user.preferred_currency ?? country.currency
+      user.effective_unit_system = user.unit_system ?? country.unit_system
+      user.location = buildLocation(country.code, { ...body, hasData: true })
       user.has_location = true
       sendJson(res, 200, user)
       return
@@ -843,7 +915,7 @@ async function handleRequest(req, res) {
   // ---- 地理資料 ----
 
   if (path === '/v1/geo/countries') {
-    sendJson(res, 200, COUNTRIES)
+    sendJson(res, 200, countriesForLocale(locale))
     return
   }
 
@@ -857,7 +929,7 @@ async function handleRequest(req, res) {
   geoMatch = path.match(/^\/v1\/geo\/countries\/([^/]+)$/)
   if (geoMatch) {
     const country = findCountry(decodeURIComponent(geoMatch[1]).toUpperCase())
-    if (!country) return sendError(res, 404, 'not_found', '找不到此國家')
+    if (!country) return sendError(res, 404, 'unsupported_country', '不支援此國家')
     sendJson(res, 200, country)
     return
   }

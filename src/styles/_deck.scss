@@ -1,7 +1,10 @@
 @use 'mixins' as *;
 
-/// 翻頁式內容頁（Deck）：整頁不捲動、下方翻頁列固定高度（沿用 .list__pager），
-/// 每一幕自己塞進剩餘高度。幕裡的東西預設不伸縮，只有 .deck__list 會撐滿、讓列平分高度。
+/// 翻頁式內容頁（Deck）：下方翻頁列固定高度（沿用 .list__pager），
+/// 每一幕自己塞進剩餘高度，內容量得準時完全不會捲動。
+/// 但幕裡的行數會隨資料與語系變動（例如地圖的路線附註、意向看板的排除理由），
+/// 算得再準也會有塞不下的組合——與其讓最後一兩行文字被 overflow:hidden 吃掉、
+/// 使用者永遠看不到，不如讓那一幕自己可以垂直捲動當最後防線。
 .deck {
   height: 100%;
   display: flex;
@@ -13,7 +16,8 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow-y: auto;
+    overflow-x: hidden;
     padding: var(--screen-margin);
 
     > * {

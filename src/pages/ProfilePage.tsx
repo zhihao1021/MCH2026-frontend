@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiErrorNotice } from '../components/ApiErrorNotice'
+import { CountryField, CountryPicker } from '../components/CountryPicker'
 import { useOptionsMenu } from '../components/OptionsMenu'
 import { Page } from '../components/Page'
 import { RoleBadge } from '../components/RoleBadge'
 import { Spinner } from '../components/Spinner'
 import { useToast } from '../components/Toast'
-import { listSubdivisions } from '../api/geo'
+import { listCountries, listSubdivisions } from '../api/geo'
 import { detectMyLocation, putMyLocation } from '../api/location'
 import { patchMe } from '../api/me'
 import type { LocationVisibility } from '../api/types'
@@ -62,9 +63,17 @@ export function ProfilePage() {
     }
   }, [auth.loading, user, navigate])
 
+  // 國家可以在這頁換，行政區清單跟著所選國家走，不再綁死使用者目前的 country_code
+  const [countryCode, setCountryCode] = useState<string | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const { data: countriesData, loading: countriesLoading } = useApi(() => listCountries(), [])
+  const countries = countriesData ?? []
+  const effectiveCountryCode = countryCode ?? user?.country_code ?? null
+  const country = countries.find((c) => c.code === effectiveCountryCode) ?? null
+
   const { data: subdivisions } = useApi(
-    () => listSubdivisions(user?.country_code ?? 'TW'),
-    [user?.country_code],
+    () => (effectiveCountryCode === null ? Promise.resolve([]) : listSubdivisions(effectiveCountryCode)),
+    [effectiveCountryCode],
   )
 
   const [displayName, setDisplayName] = useState('')
@@ -174,7 +183,7 @@ export function ProfilePage() {
     // PUT 是整筆取代：這頁沒有欄位可編的 address_line / postal_code / timezone
     // 也要原樣帶回去，否則每存一次檔案就會被清掉一次（API.md 4.5）。
     const updatedUser = await saveLocation({
-      country_code: user.country_code,
+      country_code: effectiveCountryCode ?? user.country_code,
       subdivision_code: subdivisionCode.length > 0 ? subdivisionCode : null,
       locality: locality.trim().length > 0 ? locality.trim() : null,
       address_line: user.location.address_line,
@@ -241,24 +250,36 @@ export function ProfilePage() {
           />
         </div>
 
-        <div className="form__field">
-          <label className="form__label" htmlFor="subdivision">
-            {t('profile.subdivision')}
-          </label>
-          <select
-            id="subdivision"
-            className="form__input"
-            value={subdivisionCode}
-            onChange={(e) => setSubdivisionCode(e.target.value)}
-          >
-            <option value="">{t('profile.subdivision.none')}</option>
-            {(subdivisions ?? []).map((s) => (
-              <option key={s.code} value={s.code}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        <CountryField
+          id="country"
+          label={t('profile.country')}
+          country={country}
+          loading={countriesLoading}
+          onOpen={() => setPickerOpen(true)}
+        />
+
+        {/* ISO 3166-2 沒收錄行政區的國家（has_subdivision_data=false）只留下方的自由輸入框（API.md 6.1） */}
+        {country?.has_subdivision_data !== false && (
+          <div className="form__field">
+            <label className="form__label" htmlFor="subdivision">
+              {/* 標籤直接用該國的說法：台灣「縣市」、日本「都道府県」、美國 "State"（API.md 6.1） */}
+              {country?.subdivision_label ?? t('profile.subdivision')}
+            </label>
+            <select
+              id="subdivision"
+              className="form__input"
+              value={subdivisionCode}
+              onChange={(e) => setSubdivisionCode(e.target.value)}
+            >
+              <option value="">{t('profile.subdivision.none')}</option>
+              {(subdivisions ?? []).map((s) => (
+                <option key={s.code} value={s.code}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="form__field">
           <label className="form__label" htmlFor="locality">
@@ -345,6 +366,21 @@ export function ProfilePage() {
         {activeError !== null && <ApiErrorNotice error={activeError} />}
       </div>
       {menu.element}
+      {pickerOpen && (
+        <CountryPicker
+          title={t('login.country.title')}
+          countries={countries}
+          selectedCode={effectiveCountryCode}
+          onSelect={(picked) => {
+            if (picked.code === effectiveCountryCode) return
+            setCountryCode(picked.code)
+            // 行政區代碼是國家專屬的（TW-TPE…），換國就沒意義了
+            setSubdivisionCode('')
+            toast(t('profile.toast.countryChanged'))
+          }}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
     </Page>
   )
 }

@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { ListView, type ListItem } from '../components/ListView'
 import { useOptionsMenu } from '../components/OptionsMenu'
 import { Page } from '../components/Page'
-import { useToast } from '../components/Toast'
 import { useAuth } from '../hooks/useAuth'
 import { useFavorites } from '../hooks/useFavorites'
-import { translate, useI18n } from '../i18n'
+import { localeName, useI18n } from '../i18n'
 
 const PATHS: Record<string, string> = {
   wizard: '/wizard/region',
@@ -18,10 +17,9 @@ const PATHS: Record<string, string> = {
 
 export function HomePage() {
   const navigate = useNavigate()
-  const toast = useToast()
   const favorites = useFavorites()
   const auth = useAuth()
-  const { t, locale, setLocale } = useI18n()
+  const { t, locale } = useI18n()
   const [position, setPosition] = useState(1)
 
   const items: ListItem[] = [
@@ -44,18 +42,13 @@ export function HomePage() {
   ]
 
   // 語言就放在首頁的選項裡：這是使用者第一眼看到的畫面，
-  // 看不懂介面的人不該還要先找到「設定」才換得掉語言
-  const nextLocale = locale === 'en' ? 'zh-Hant' : 'en'
-
+  // 看不懂介面的人不該還要先找到「設定」才換得掉語言。語言超過兩個後不能再直接輪替，
+  // 改成開一個獨立的語言選單頁（跟設定頁裡的「語言」共用同一個頁面）。
   const menu = useOptionsMenu(t('common.options'), [
     {
       id: 'language',
-      label: t('home.menu.language', { language: t(`language.${nextLocale}`) }),
-      onSelect: () => {
-        setLocale(nextLocale)
-        // 提示訊息要用「切換後」的語言：這一輪的 t 還是舊語系
-        toast(translate(nextLocale, 'settings.toast.language', { language: translate(nextLocale, `language.${nextLocale}`) }))
-      },
+      label: t('home.menu.language', { language: localeName(locale) }),
+      onSelect: () => navigate('/settings/language'),
     },
     { id: 'settings', label: t('home.menu.settings'), onSelect: () => navigate('/settings') },
     { id: 'about', label: t('home.menu.about'), onSelect: () => navigate('/about') },

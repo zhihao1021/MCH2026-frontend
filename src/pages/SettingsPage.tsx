@@ -4,7 +4,7 @@ import { ListView } from '../components/ListView'
 import { Page } from '../components/Page'
 import { useToast } from '../components/Toast'
 import { useAuth } from '../hooks/useAuth'
-import { translate, useI18n, type Locale } from '../i18n'
+import { localeName, useI18n } from '../i18n'
 import { readJSON, writeJSON } from '../lib/storage'
 
 type Settings = {
@@ -22,26 +22,13 @@ export function SettingsPage() {
   const [settings, setSettings] = useState<Settings>(() => readJSON('settings', DEFAULTS))
   const toast = useToast()
   const auth = useAuth()
-  const { t, locale, setLocale } = useI18n()
+  const { t, locale } = useI18n()
 
   const toggle = (key: keyof Settings) => {
     const next = { ...settings, [key]: !settings[key] }
     setSettings(next)
     writeJSON('settings', next)
     toast(next[key] ? t('settings.toast.on') : t('settings.toast.off'))
-  }
-
-  // 只有兩個語言，直接輪替，不必再開一層選單
-  const nextLocale: Locale = locale === 'en' ? 'zh-Hant' : 'en'
-
-  const switchLanguage = () => {
-    setLocale(nextLocale)
-    // 提示訊息用切換後的語言：這一輪的 t 還是舊語系
-    toast(
-      translate(nextLocale, 'settings.toast.language', {
-        language: translate(nextLocale, `language.${nextLocale}`),
-      }),
-    )
   }
 
   const authItem =
@@ -57,7 +44,7 @@ export function SettingsPage() {
     ...(auth.user !== null
       ? [{ id: PROFILE_ITEM_ID, title: t('settings.profile'), subtitle: t('settings.profile.subtitle') }]
       : []),
-    { id: LANGUAGE_ITEM_ID, title: t('settings.language'), trailing: t(`language.${locale}`) },
+    { id: LANGUAGE_ITEM_ID, title: t('settings.language'), trailing: localeName(locale) },
     { id: 'sound', title: t('settings.sound'), trailing: settings.sound ? t('settings.on') : t('settings.off') },
     {
       id: 'dataSaver',
@@ -80,7 +67,7 @@ export function SettingsPage() {
       return
     }
     if (id === LANGUAGE_ITEM_ID) {
-      switchLanguage()
+      navigate('/settings/language')
       return
     }
     toggle(id as keyof Settings)

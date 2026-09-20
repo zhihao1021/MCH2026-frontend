@@ -4,6 +4,7 @@ import { CropPickerPage } from './pages/CropPickerPage'
 import { FavoritesPage } from './pages/FavoritesPage'
 import { HomePage } from './pages/HomePage'
 import { IntentFormPage } from './pages/IntentFormPage'
+import { LanguagePickerPage } from './pages/LanguagePickerPage'
 import { LoginOtpPage } from './pages/LoginOtpPage'
 import { LoginPhonePage } from './pages/LoginPhonePage'
 import { MyIntentsPage } from './pages/MyIntentsPage'
@@ -47,6 +48,7 @@ export const router = createHashRouter([
   { path: '/login', element: <LoginPhonePage /> },
   { path: '/login/otp', element: <LoginOtpPage /> },
   { path: '/settings', element: <SettingsPage /> },
+  { path: '/settings/language', element: <LanguagePickerPage /> },
   { path: '/about', element: <AboutPage /> },
   { path: '*', element: <NotFoundPage /> },
 ])
